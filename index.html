@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>TESR Vision Lab — OpenCV Playground &amp; Python Code Generator</title>
+<title>TESR Image Processing Lab — OpenCV Playground &amp; Python Code Generator</title>
 <meta name="description" content="ปรับพารามิเตอร์ OpenCV บนเว็บ แล้วสร้างโค้ด Python พร้อมรันบน PC, Raspberry Pi และ NVIDIA Jetson — โดย TESR (Thai Embedded System and Robotics)" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -280,7 +280,7 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
 <header>
   <img class="logo" id="logo" alt="TESR" />
   <div class="brandtext">
-    <h1>TESR <span>Vision Lab</span></h1>
+    <h1>TESR <span>Image Processing Lab</span></h1>
     <p data-i18n="tagline">ปรับค่า OpenCV บนเว็บ แล้วรับโค้ด Python ไปรันบน Edge ได้ทันที</p>
   </div>
   <div class="header-actions">
@@ -294,6 +294,11 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
 </header>
 
 <div id="cvStatus"><span class="dot" id="cvDot"></span><span id="cvMsg">กำลังโหลด OpenCV.js …</span></div>
+
+<div id="deployWarn" class="hidden" style="padding:10px 22px;border-bottom:1px solid var(--line);background:rgba(209,73,91,.14);color:#f0b9c0;font-size:12.5px;line-height:1.55">
+  ⚠️ <b data-i18n="dw.title">ไฟล์ประกอบบางส่วนหายไปจากเซิร์ฟเวอร์</b> —
+  <span data-i18n="dw.body">โฟลเดอร์ samples/ หรือ assets/ ไม่ได้ถูกอัปโหลดขึ้น repo ครบ เว็บยังพอใช้งานได้ แต่ภาพตัวอย่างและตัวตรวจจับใบหน้าจะหาย ให้อัปโหลดทุกโฟลเดอร์ตามโครงสร้างใน README แล้ว refresh</span>
+</div>
 
 <div class="steps" id="steps">
   <div class="step"><b>1</b><span class="ic">🖼</span><span data-i18n="step.1">เลือกภาพตัวอย่าง ลากภาพมาวาง หรือเปิดกล้อง Live</span></div>
@@ -849,7 +854,7 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
 </nav>
 
 <footer>
-  <b>TESR Vision Lab</b> — Thai Embedded System and Robotics · Learn → Build → Train → Deploy → Integrate → Scale<br>
+  <b>TESR Image Processing Lab</b> — Thai Embedded System and Robotics · Learn → Build → Train → Deploy → Integrate → Scale<br>
   <span data-i18n="foot">ประมวลผลทั้งหมดในเบราว์เซอร์ ไม่มีการอัปโหลดภาพขึ้นเซิร์ฟเวอร์</span>
 </footer>
 
@@ -857,7 +862,7 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
 
 <script>
 /* =========================================================================
-   TESR Vision Lab
+   TESR Image Processing Lab
    Browser-side OpenCV playground + Python code generator
    MIT License · TESR Co., Ltd. (Thai Embedded System and Robotics)
    ========================================================================= */
@@ -880,6 +885,7 @@ const I18N = {
     'step.3':'Colour work: click the image to sample a colour, no guessing H S V',
     'step.4':'Copy or download the Python code and run it',
     'view.code':'Get Python code','vw.work':'Workspace','vw.export':'Get Python code',
+    'dw.title':'Some files are missing from this server','dw.body':'The samples/ or assets/ folder was not fully uploaded to the repo. The page still works, but sample images and face detection will be missing. Upload every folder per the README layout, then refresh.',
     'ex.summary':'Current task','ex.back':'Back to workspace',
     'ex.hint':'The code on the right uses your latest settings. To change them, go back to the workspace.','jump.stage':'Result','jump.proc':'Controls','jump.code':'Code',
     'c.md':'Minimum gap between circles — minDist','c.p2':'Detection strictness — param2',
@@ -1023,6 +1029,7 @@ SAMPLES.forEach(n=>{
   b.title=n; b.dataset.name=n;
   b.innerHTML='<img src="samples/'+n+'" alt="'+n+'" loading="lazy">';
   b.onclick=()=>loadUrl('samples/'+n, n);
+  b.querySelector('img').onerror=()=>{ b.style.display='none'; deployWarn(); };
   sampWrap.appendChild(b);
 });
 function markSample(n){
@@ -1552,7 +1559,10 @@ $('f_add').onclick=()=>{
 
 function runFace(src,F){
   const entry=ensureCascade('haarcascade_frontalface_default.xml');
-  if(entry.state==='error') return null;
+  if(entry.state==='error'){
+    cascadeProblem(src, LANG==='en'?'Cascade file could not be loaded':'โหลดไฟล์ cascade ไม่สำเร็จ');
+    return null;
+  }
   if(entry.state==='loading'){
     const tmp=src.clone();
     cv.putText(tmp,'loading cascade...',new cv.Point(14,34),cv.FONT_HERSHEY_SIMPLEX,0.7,new cv.Scalar(...GOLD),2,cv.LINE_AA);
@@ -1696,21 +1706,37 @@ function ensureCascade(name){
   if(CASCADES[name]) return CASCADES[name];
   const entry={state:'loading',clf:null};
   CASCADES[name]=entry;
+  const FALLBACK='https://raw.githubusercontent.com/opencv/opencv/4.x/data/haarcascades/';
+  const finish=buf=>{
+    try{ cv.FS_unlink(name); }catch(err){}
+    cv.FS_createDataFile('/',name,new Uint8Array(buf),true,false,false);
+    const clf=new cv.CascadeClassifier();
+    if(!clf.load(name)) throw new Error('load failed');
+    entry.clf=clf; entry.state='ready'; render();
+  };
   fetch('assets/cascades/'+name)
-    .then(r=>{ if(!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
-    .then(buf=>{
-      try{ cv.FS_unlink(name); }catch(err){}
-      cv.FS_createDataFile('/',name,new Uint8Array(buf),true,false,false);
-      const clf=new cv.CascadeClassifier();
-      if(!clf.load(name)) throw new Error('load failed');
-      entry.clf=clf; entry.state='ready'; render();
+    .then(r=>{
+      if(r.ok) return r.arrayBuffer().then(finish);
+      // local copy missing (incomplete deployment) — pull from the OpenCV repo instead
+      deployWarn();
+      return fetch(FALLBACK+name).then(r2=>{
+        if(!r2.ok) throw new Error('fallback '+r2.status);
+        return r2.arrayBuffer().then(buf=>{
+          finish(buf);
+          $('cvMsg').textContent = LANG==='en'
+            ? 'assets/cascades/'+name+' is missing on this server — loaded it from the OpenCV repository instead.'
+            : 'ไม่พบ assets/cascades/'+name+' บนเซิร์ฟเวอร์นี้ — โหลดจาก OpenCV repository มาใช้แทนแล้ว';
+        });
+      });
     })
     .catch(err=>{
       entry.state='error'; entry.msg=String(err.message||err);
+      deployWarn();
       $('cvDot').className='dot err';
       $('cvMsg').textContent = LANG==='en'
-        ? 'Could not load '+name+' from assets/cascades/. Serve the folder over http (python -m http.server) rather than opening the file directly.'
-        : 'โหลด '+name+' จาก assets/cascades/ ไม่ได้ ต้องเปิดหน้านี้ผ่านเว็บเซิร์ฟเวอร์ (python -m http.server) ไม่ใช่เปิดไฟล์ตรง ๆ';
+        ? 'Could not load '+name+' (local and online both failed). Upload assets/cascades/ to the repo, or check the connection.'
+        : 'โหลด '+name+' ไม่ได้ทั้งจากเซิร์ฟเวอร์และออนไลน์ — อัปโหลดโฟลเดอร์ assets/cascades/ ขึ้น repo หรือตรวจสอบอินเทอร์เน็ต';
+      render();
     });
   return entry;
 }
@@ -1722,11 +1748,23 @@ function detect(clf,gray,H,minSize){
   vec.delete();
   return out;
 }
+function cascadeProblem(src,msg){
+  const tmp=src.clone();
+  const w=tmp.cols;
+  cv.rectangle(tmp,new cv.Point(0,0),new cv.Point(w,64),new cv.Scalar(20,20,24,235),-1);
+  cv.putText(tmp,msg,new cv.Point(14,26),cv.FONT_HERSHEY_SIMPLEX,0.62,new cv.Scalar(209,120,130,255),2,cv.LINE_AA);
+  cv.putText(tmp,LANG==='en'?'see the message bar above / README':'ดูข้อความแถบบนสุด / README',
+             new cv.Point(14,52),cv.FONT_HERSHEY_SIMPLEX,0.5,new cv.Scalar(...GOLD),1,cv.LINE_AA);
+  cv.imshow('canvasResult',tmp); tmp.delete();
+}
 function runHaar(src,H){
   const main=ensureCascade(H.cascade);
   const face=H.roi?ensureCascade('haarcascade_frontalface_default.xml'):null;
   const waiting = main.state==='loading' || (face&&face.state==='loading');
-  if(main.state==='error'||(face&&face.state==='error')) return null;
+  if(main.state==='error'||(face&&face.state==='error')){
+    cascadeProblem(src, LANG==='en'?'Cascade file could not be loaded':'โหลดไฟล์ cascade ไม่สำเร็จ');
+    return null;
+  }
   if(waiting){
     const tmp=src.clone();
     cv.putText(tmp,'loading cascade...',new cv.Point(14,34),cv.FONT_HERSHEY_SIMPLEX,0.7,new cv.Scalar(...GOLD),2,cv.LINE_AA);
@@ -1821,11 +1859,11 @@ function header(title,G,extra,opts){
   o.push('#!/usr/bin/env python3');
   o.push('# -*- coding: utf-8 -*-');
   o.push('"""');
-  o.push('TESR Vision Lab — '+title);
+  o.push('TESR Image Processing Lab — '+title);
   o.push('Thai Embedded System and Robotics (TESR)');
   o.push('');
-  o.push(L('สร้างจากเครื่องมือ TESR Vision Lab โดยจูนค่าจากภาพ: '+currentName,
-          'Generated by TESR Vision Lab, parameters tuned on: '+currentName));
+  o.push(L('สร้างจากเครื่องมือ TESR Image Processing Lab โดยจูนค่าจากภาพ: '+currentName,
+          'Generated by TESR Image Processing Lab, parameters tuned on: '+currentName));
   o.push('');
   const dev={pc:'PC / Notebook (Windows, Linux, macOS)',
              pi:'Raspberry Pi 5 (Raspberry Pi OS Bookworm, 64-bit)',
@@ -1975,7 +2013,7 @@ function mainBlock(G,payloadFields){
   const o=[];
   const style=srcStyle(G);
   o.push('def main():');
-  o.push('    parser = argparse.ArgumentParser(description="TESR Vision Lab generated script")');
+  o.push('    parser = argparse.ArgumentParser(description="TESR Image Processing Lab generated script")');
   if(G.input==='image') o.push('    parser.add_argument("--source", required=True, help="'+L('พาธไฟล์ภาพ','path to the image file')+'")');
   else if(G.input==='video') o.push('    parser.add_argument("--source", required=True, help="'+L('พาธไฟล์วิดีโอ','path to the video file')+'")');
   else if(G.device==='pc') o.push('    parser.add_argument("--camera", type=int, default=0, help="'+L('หมายเลขกล้อง','camera index')+'")');
@@ -2516,7 +2554,7 @@ function codeFace(P){
   if(G.input!=='camera') o.push(...captureBlock(G));
   o.push('def main():');
   o.push('    global RECOGNIZER, NAMES');
-  o.push('    parser = argparse.ArgumentParser(description="TESR Vision Lab face recognition (LBPH)")');
+  o.push('    parser = argparse.ArgumentParser(description="TESR Image Processing Lab face recognition (LBPH)")');
   o.push('    parser.add_argument("--mode", choices=["enroll", "train", "recognize"],');
   o.push('                        default="recognize")');
   o.push('    parser.add_argument("--name", help="'+L('ชื่อคนที่จะลงทะเบียน ใช้กับ --mode enroll','person to enrol, used with --mode enroll')+'")');
@@ -2935,6 +2973,15 @@ $('dlImg').onclick=()=>{
 
 /* ---------------- boot ---------------- */
 /* ---------------- UX helpers ---------------- */
+/* ---------------- deployment self-check ---------------- */
+let _deployWarned=false;
+function deployWarn(){
+  if(_deployWarned) return;
+  if(!location.protocol.startsWith('http')) return; // file:// has its own messaging
+  _deployWarned=true;
+  $('deployWarn').classList.remove('hidden');
+}
+
 /* ---------------- main views ---------------- */
 let VIEW='work';
 const TAB_LABELS={
