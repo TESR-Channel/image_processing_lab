@@ -188,6 +188,91 @@ table.objs th{text-align:left;color:var(--ink-dim);font-weight:400;padding:4px 6
 table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
 .objwrap{max-height:190px;overflow:auto}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- UX pass ---------- */
+.steps{
+  display:flex;gap:10px;align-items:stretch;padding:12px 22px;border-bottom:1px solid var(--line);
+  background:linear-gradient(90deg, rgba(122,20,24,.14), rgba(212,175,55,.05));position:relative;flex-wrap:wrap;
+}
+.step{display:flex;align-items:center;gap:9px;flex:1;min-width:160px}
+.step b{
+  width:26px;height:26px;flex:none;border-radius:50%;display:grid;place-items:center;
+  background:var(--crimson);color:#fff;font-family:'Kanit';font-size:13px;box-shadow:0 0 0 2px rgba(212,175,55,.35);
+}
+.step span{font-size:12.5px;color:#cfcfd6;line-height:1.35}
+.step .ic{font-size:17px}
+#stepsClose{
+  position:absolute;top:8px;right:10px;background:none;border:none;color:var(--ink-dim);
+  cursor:pointer;font-size:14px;padding:4px;
+}
+#stepsClose:hover{color:var(--ink)}
+
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 14px 12px;border-bottom:1px solid var(--line)}
+.tab{
+  display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:9px;
+  padding:10px 12px;background:var(--panel-2);color:var(--ink-dim);text-align:left;
+  font-size:12.5px;line-height:1.25;
+}
+.tab .ico{font-size:17px;flex:none;filter:grayscale(35%)}
+.tab:hover{border-color:var(--gold-dim);color:var(--ink)}
+.tab.on{border-color:var(--gold-dim);background:rgba(212,175,55,.10);color:var(--gold)}
+.tab.on .ico{filter:none}
+
+input[type=range]{-webkit-appearance:none;appearance:none;background:transparent;height:26px;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:#2e2e36}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--gold);
+  border:2px solid #17171b;margin-top:-7px;box-shadow:0 1px 5px rgba(0,0,0,.55);
+}
+input[type=range]:active::-webkit-slider-thumb{background:#e6c455}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:#2e2e36}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--gold);border:2px solid #17171b}
+
+details.adv{border:1px dashed #3a3a44;border-radius:8px;padding:0 12px;margin-bottom:13px}
+details.adv>summary{
+  cursor:pointer;padding:10px 0;color:var(--ink-dim);font-family:'Kanit';font-size:12px;
+  list-style:none;user-select:none;
+}
+details.adv>summary::-webkit-details-marker{display:none}
+details.adv>summary::before{content:"▸ ";color:var(--gold)}
+details.adv[open]>summary::before{content:"▾ "}
+details.adv[open]{padding-bottom:4px;border-style:solid;border-color:var(--line)}
+details.adv .field:last-child{margin-bottom:9px}
+
+#jumpbar{display:none}
+@media (max-width:1080px){
+  #jumpbar{
+    display:flex;position:fixed;bottom:0;left:0;right:0;z-index:60;
+    background:rgba(16,16,19,.96);backdrop-filter:blur(8px);border-top:1px solid var(--line);
+  }
+  #jumpbar button{
+    flex:1;background:none;border:none;color:var(--ink-dim);padding:11px 4px max(11px, env(safe-area-inset-bottom));
+    font-family:'Kanit';font-size:12px;cursor:pointer;
+  }
+  #jumpbar button:active{color:var(--gold)}
+  footer{padding-bottom:74px}
+}
+
+.samples{grid-template-columns:repeat(auto-fill,minmax(50px,1fr))}
+.samples button{min-width:0}
+
+/* prevent Thai long-run text from blowing up grid tracks */
+.stack,.card,.card .body,.pane{min-width:0}
+.hint,.note,.step span,#drop,.lbl,.check span,.brandtext p{overflow-wrap:anywhere}
+@media (max-width:1080px){
+  .wrap{grid-template-columns:minmax(0,1fr)}
+}
+
+.viewswitch{display:flex;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:3px;gap:3px}
+.vbtn{border:none;background:transparent;color:var(--ink-dim);font-family:'Kanit';font-size:12.5px;padding:7px 14px;border-radius:999px;cursor:pointer;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.vbtn:hover{color:var(--ink)}
+.vbtn.on{background:var(--crimson);color:#fff}
+#viewExport pre.code{max-height:74vh}
+@media (max-width:640px){
+  .viewswitch{order:3;width:100%;justify-content:center}
+  header{flex-wrap:wrap}
+}
+td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none !important}
 </style>
 </head>
 <body>
@@ -199,6 +284,10 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
     <p data-i18n="tagline">ปรับค่า OpenCV บนเว็บ แล้วรับโค้ด Python ไปรันบน Edge ได้ทันที</p>
   </div>
   <div class="header-actions">
+    <div class="viewswitch">
+      <button class="vbtn on" data-mainview="work">🎛 <span data-i18n="vw.work">ปรับแต่ง</span></button>
+      <button class="vbtn" data-mainview="export">🐍 <span data-i18n="vw.export">รับโค้ด Python</span></button>
+    </div>
     <button class="pill on" id="langTH">ไทย</button>
     <button class="pill" id="langEN">EN</button>
   </div>
@@ -206,7 +295,15 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
 
 <div id="cvStatus"><span class="dot" id="cvDot"></span><span id="cvMsg">กำลังโหลด OpenCV.js …</span></div>
 
-<div class="wrap">
+<div class="steps" id="steps">
+  <div class="step"><b>1</b><span class="ic">🖼</span><span data-i18n="step.1">เลือกภาพตัวอย่าง ลากภาพมาวาง หรือเปิดกล้อง Live</span></div>
+  <div class="step"><b>2</b><span class="ic">🎛</span><span data-i18n="step.2">เลือกงานที่ต้องการ แล้วเลื่อนปรับค่า — เห็นผลทันที</span></div>
+  <div class="step"><b>3</b><span class="ic">🎨</span><span data-i18n="step.3">งานสี: คลิกบนภาพเพื่อดูดสี ไม่ต้องเดาค่า H S V</span></div>
+  <div class="step"><b>4</b><span class="ic">🐍</span><span data-i18n="step.4">คัดลอกหรือดาวน์โหลดโค้ด Python ไปรันได้เลย</span></div>
+  <button id="stepsClose" title="ซ่อน">✕</button>
+</div>
+
+<div class="wrap" id="viewWork">
 
   <!-- ============ LEFT: CONTROLS ============ -->
   <div class="stack">
@@ -232,16 +329,18 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
       </div>
     </div>
 
-    <div class="card">
-      <h3 data-i18n="proc.title">2 · การประมวลผล</h3>
+    <div class="card" id="procCard">
+      <h3><span data-i18n="proc.title">2 · การประมวลผล</span>
+        <button class="btn" id="resetPane" style="margin-left:auto;padding:4px 10px;font-size:11.5px">↺ <span data-i18n="proc.reset">รีเซ็ตแท็บนี้</span></button>
+      </h3>
       <div class="tabs">
-        <button class="tab on" data-tab="circle" data-i18n="tab.circle">วงกลม (Hough)</button>
-        <button class="tab" data-tab="color" data-i18n="tab.color">สี (HSV)</button>
-        <button class="tab" data-tab="pre" data-i18n="tab.pre">ภาพพื้นฐาน</button>
-        <button class="tab" data-tab="line" data-i18n="tab.line">เส้นตรง (Hough)</button>
-        <button class="tab" data-tab="draw" data-i18n="tab.draw">วาด &amp; ข้อความ</button>
-        <button class="tab" data-tab="haar" data-i18n="tab.haar">Haar Cascade</button>
-        <button class="tab" data-tab="face" data-i18n="tab.face">Face Recognition</button>
+        <button class="tab on" data-tab="circle"><span class="ico">⭕</span><span data-i18n="tab.circle">หาวงกลม</span></button>
+        <button class="tab" data-tab="color"><span class="ico">🎨</span><span data-i18n="tab.color">จับสี &amp; นับชิ้น</span></button>
+        <button class="tab" data-tab="line"><span class="ico">📏</span><span data-i18n="tab.line">หาเส้นตรง</span></button>
+        <button class="tab" data-tab="pre"><span class="ico">🛠</span><span data-i18n="tab.pre">ปรับแต่งภาพ</span></button>
+        <button class="tab" data-tab="draw"><span class="ico">✏️</span><span data-i18n="tab.draw">วาด &amp; ข้อความ</span></button>
+        <button class="tab" data-tab="haar"><span class="ico">👁</span><span data-i18n="tab.haar">ตา / หน้า / ยิ้ม</span></button>
+        <button class="tab" data-tab="face"><span class="ico">🪪</span><span data-i18n="tab.face">จำใบหน้า</span></button>
       </div>
 
       <!-- CIRCLE -->
@@ -260,23 +359,24 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
           </div>
         </div>
         <div class="field">
+          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="c.md">ระยะห่างขั้นต่ำระหว่างวง — minDist</label><b id="c_mdV">50</b></div>
+          <input type="range" id="c_md" min="5" max="600" step="1" value="50" />
+          <div class="hint" data-i18n="c.mdHint">ระยะห่างต่ำสุดระหว่างจุดศูนย์กลาง ถ้าน้อยเกินจะได้วงซ้อนกันเป็นกอง</div>
+        </div>
+        <div class="field">
+          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="c.p2">ความเข้มงวดในการยืนยันวง — param2</label><b id="c_p2V">30</b></div>
+          <input type="range" id="c_p2" min="5" max="200" step="1" value="30" />
+          <div class="hint" data-i18n="c.p2Hint">ยิ่งต่ำยิ่งเจอวงกลมเยอะ (รวมของปลอม) ยิ่งสูงยิ่งเข้มงวด</div>
+        </div>
+        <details class="adv"><summary data-i18n="adv">ตัวเลือกขั้นสูง</summary>
+        <div class="field">
           <div class="slider-head"><label class="lbl" style="margin:0">dp</label><b id="c_dpV">1.2</b></div>
           <input type="range" id="c_dp" min="1" max="3" step="0.1" value="1.2" />
           <div class="hint" data-i18n="c.dpHint">อัตราส่วนความละเอียดของ accumulator ยิ่งมากยิ่งหลวม</div>
         </div>
         <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0">minDist</label><b id="c_mdV">50</b></div>
-          <input type="range" id="c_md" min="5" max="600" step="1" value="50" />
-          <div class="hint" data-i18n="c.mdHint">ระยะห่างต่ำสุดระหว่างจุดศูนย์กลาง ถ้าน้อยเกินจะได้วงซ้อนกันเป็นกอง</div>
-        </div>
-        <div class="field">
           <div class="slider-head"><label class="lbl" style="margin:0">param1 (Canny high)</label><b id="c_p1V">100</b></div>
           <input type="range" id="c_p1" min="20" max="300" step="5" value="100" />
-        </div>
-        <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0">param2 (threshold)</label><b id="c_p2V">30</b></div>
-          <input type="range" id="c_p2" min="5" max="200" step="1" value="30" />
-          <div class="hint" data-i18n="c.p2Hint">ยิ่งต่ำยิ่งเจอวงกลมเยอะ (รวมของปลอม) ยิ่งสูงยิ่งเข้มงวด</div>
         </div>
         <div class="field">
           <div class="slider-head"><label class="lbl" style="margin:0">minRadius</label><b id="c_r1V">0</b></div>
@@ -287,6 +387,7 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
           <input type="range" id="c_r2" min="0" max="600" step="1" value="0" />
           <div class="hint" data-i18n="c.rHint">0 = ไม่จำกัด · กำหนดช่วงรัศมีให้ตรงงานจริงช่วยลดผลลวงได้มาก</div>
         </div>
+        </details>
         <label class="check"><input type="checkbox" id="c_center" checked /><span data-i18n="c.center">วาดจุดศูนย์กลาง</span></label>
         <label class="check"><input type="checkbox" id="c_label" checked /><span data-i18n="c.label">แสดงหมายเลข + รัศมี</span></label>
       </div>
@@ -430,12 +531,23 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
           <input type="range" id="l_high" min="0" max="500" value="150" />
           <div class="hint" data-i18n="l.cannyHint">แนวทางที่ใช้กันคือ threshold2 ประมาณ 2–3 เท่าของ threshold1</div>
         </div>
+        <details class="adv"><summary data-i18n="adv">ตัวเลือกขั้นสูง</summary>
         <div class="field">
           <label class="lbl">apertureSize</label>
           <select id="l_aperture"><option selected>3</option><option>5</option><option>7</option></select>
           <div class="hint" data-i18n="l.apHint">รับได้เฉพาะ 3, 5, 7 เท่านั้น ค่าอื่นทำให้ cv2.Canny โยน error</div>
         </div>
         <label class="check"><input type="checkbox" id="l_l2" /><span>L2gradient</span></label>
+        <div class="field">
+          <div class="slider-head"><label class="lbl" style="margin:0">rho (px)</label><b id="l_rhoV">1</b></div>
+          <input type="range" id="l_rho" min="1" max="10" value="1" />
+        </div>
+        <div class="field">
+          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="l.deg">theta (องศาต่อขั้น)</label><b id="l_degV">1</b></div>
+          <input type="range" id="l_deg" min="1" max="30" value="1" />
+          <div class="hint" data-i18n="l.degHint">ในโค้ดคือ Degree * np.pi / 180 ยิ่งละเอียดยิ่งช้า</div>
+        </div>
+        </details>
 
         <div class="field" style="margin-top:6px">
           <label class="lbl" data-i18n="l.method">วิธีหาเส้น</label>
@@ -446,16 +558,7 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
           <div class="hint" data-i18n="l.methodHint">HoughLines ให้เส้นยาวไม่จำกัดปลาย ส่วน HoughLinesP ให้จุดปลายจริงของเส้น</div>
         </div>
         <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0">rho (px)</label><b id="l_rhoV">1</b></div>
-          <input type="range" id="l_rho" min="1" max="10" value="1" />
-        </div>
-        <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="l.deg">theta (องศาต่อขั้น)</label><b id="l_degV">1</b></div>
-          <input type="range" id="l_deg" min="1" max="30" value="1" />
-          <div class="hint" data-i18n="l.degHint">ในโค้ดคือ Degree * np.pi / 180 ยิ่งละเอียดยิ่งช้า</div>
-        </div>
-        <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0">threshold</label><b id="l_thrV">150</b></div>
+          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="l.thr">คะแนนยืนยันเส้น — threshold</label><b id="l_thrV">150</b></div>
           <input type="range" id="l_thr" min="1" max="400" value="150" />
           <div class="hint" data-i18n="l.thrHint">จำนวนคะแนนโหวตขั้นต่ำ ยิ่งสูงยิ่งได้เฉพาะเส้นเด่นชัด</div>
         </div>
@@ -575,11 +678,13 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
           <input type="range" id="h_mn" min="1" max="40" value="15" />
           <div class="hint" data-i18n="h.mnHint">ยิ่งสูงยิ่งเข้มงวด ผลลวงน้อยลงแต่อาจตรวจไม่เจอ</div>
         </div>
+        <details class="adv"><summary data-i18n="adv">ตัวเลือกขั้นสูง</summary>
         <div class="field">
           <div class="slider-head"><label class="lbl" style="margin:0">minSize (px)</label><b id="h_msV">30</b></div>
           <input type="range" id="h_ms" min="0" max="200" step="5" value="30" />
         </div>
         <label class="check"><input type="checkbox" id="h_eq" checked /><span data-i18n="h.eq">equalizeHist ก่อนตรวจจับ</span></label>
+        </details>
         <label class="check"><input type="checkbox" id="h_label" checked /><span data-i18n="h.label">แสดงป้ายกำกับ</span></label>
         <div class="hint" data-i18n="h.privacy">รีโพนี้ไม่ได้แถมภาพใบหน้ามาให้ เพราะภาพบุคคลมีเรื่องลิขสิทธิ์และ PDPA ให้ใช้ปุ่มเปิดกล้องจับภาพ หรือลากภาพของคุณเองมาวาง</div>
       </div>
@@ -599,18 +704,20 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
           <button class="btn" id="f_clear" style="flex:1" data-i18n="f.clear">ล้างทั้งหมด</button>
         </div>
         <div id="f_list" style="margin-top:10px"></div>
-        <div class="field" style="margin-top:13px">
+        <div style="margin-top:13px"></div>
+        <div class="field">
+          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="f.thr">ระยะสูงสุดที่ยอมรับว่าเป็นคนเดียวกัน</label><b id="f_thrV">70</b></div>
+          <input type="range" id="f_thr" min="10" max="200" value="70" />
+          <div class="hint" data-i18n="f.thrHint">ยิ่งต่ำยิ่งเข้มงวด ถ้าเกินค่านี้จะขึ้นว่า Unknown</div>
+        </div>
+        <details class="adv"><summary data-i18n="adv">ตัวเลือกขั้นสูง</summary>
+        <div class="field">
           <label class="lbl" data-i18n="f.size">ขนาดภาพใบหน้าที่ตัดมาเทียบ</label>
           <select id="f_size">
             <option value="100">100 x 100</option>
             <option value="150" selected>150 x 150</option>
             <option value="200">200 x 200</option>
           </select>
-        </div>
-        <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="f.thr">ระยะสูงสุดที่ยอมรับว่าเป็นคนเดียวกัน</label><b id="f_thrV">70</b></div>
-          <input type="range" id="f_thr" min="10" max="200" value="70" />
-          <div class="hint" data-i18n="f.thrHint">ยิ่งต่ำยิ่งเข้มงวด ถ้าเกินค่านี้จะขึ้นว่า Unknown</div>
         </div>
         <div class="field">
           <div class="slider-head"><label class="lbl" style="margin:0">scaleFactor</label><b id="f_sfV">1.20</b></div>
@@ -620,6 +727,7 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
           <div class="slider-head"><label class="lbl" style="margin:0">minNeighbors</label><b id="f_mnV">5</b></div>
           <input type="range" id="f_mn" min="1" max="20" value="5" />
         </div>
+        </details>
         <label class="check"><input type="checkbox" id="f_dist" checked /><span data-i18n="f.dist">แสดงค่าระยะบนกรอบ</span></label>
         <div class="hint" data-i18n="f.privacy">
           ใบหน้าที่ลงทะเบียนเก็บไว้ในหน่วยความจำของแท็บนี้เท่านั้น ปิดหน้าเว็บแล้วหายทันที ไม่มีการอัปโหลดหรือบันทึกลงเครื่อง
@@ -628,44 +736,19 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
       </div>
     </div>
 
-    <div class="card">
-      <h3 data-i18n="gen.title">3 · ตัวเลือกโค้ดที่จะสร้าง</h3>
-      <div class="body">
-        <div class="field">
-          <label class="lbl" data-i18n="gen.device">อุปกรณ์ปลายทาง</label>
-          <select id="g_device">
-            <option value="pc">PC / Notebook (Windows, Linux, macOS)</option>
-            <option value="pi">Raspberry Pi 5 (Picamera2)</option>
-            <option value="jetson">NVIDIA Jetson (CSI / GStreamer)</option>
-            <option value="kinect">Kinect v1 + libfreenect</option>
-          </select>
-        </div>
-        <div class="field">
-          <label class="lbl" data-i18n="gen.input">แหล่งภาพในโค้ด</label>
-          <select id="g_input">
-            <option value="image" data-i18n="gen.in1">ไฟล์ภาพ</option>
-            <option value="camera" data-i18n="gen.in2">กล้องแบบเรียลไทม์</option>
-            <option value="video" data-i18n="gen.in3">ไฟล์วิดีโอ</option>
-          </select>
-        </div>
-        <label class="check"><input type="checkbox" id="g_fps" /><span data-i18n="gen.fps">แสดง FPS บนภาพ</span></label>
-        <label class="check"><input type="checkbox" id="g_save" /><span data-i18n="gen.save">บันทึกภาพผลลัพธ์ลงโฟลเดอร์</span></label>
-        <label class="check"><input type="checkbox" id="g_mqtt" /><span data-i18n="gen.mqtt">ส่งผลลัพธ์ออก MQTT (Node-RED / Dashboard)</span></label>
-        <label class="check"><input type="checkbox" id="g_th" checked /><span data-i18n="gen.th">คอมเมนต์ภาษาไทย</span></label>
-      </div>
-    </div>
   </div>
 
   <!-- ============ RIGHT: STAGE + CODE ============ -->
   <div class="stack">
 
-    <div class="card">
+    <div class="card" id="stageCard">
       <div class="stage-head">
         <strong class="k" style="font-size:13.5px;color:var(--gold)" data-i18n="stage.title">ผลลัพธ์แบบเรียลไทม์</strong>
         <div style="margin-left:auto" class="row wrap2">
           <button class="pill on" data-view="both" data-i18n="view.both">เทียบคู่</button>
           <button class="pill" data-view="result" data-i18n="view.result">เฉพาะผลลัพธ์</button>
           <button class="btn gold" id="dlImg" data-i18n="view.dl">บันทึกภาพผลลัพธ์</button>
+          <button class="btn primary" id="gotoCode">🐍 <span data-i18n="view.code">รับโค้ด Python</span></button>
         </div>
       </div>
       <div class="views">
@@ -694,7 +777,55 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
       </div>
     </div>
 
+  </div>
+</div>
+
+
+
+<div class="wrap hidden" id="viewExport">
+  <div class="stack">
     <div class="card">
+      <h3 data-i18n="ex.summary">งานที่กำลังทำอยู่</h3>
+      <div class="body">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+          <img id="exportPreview" alt="" style="width:110px;height:82px;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--bg-2)" />
+          <div>
+            <div class="k" style="color:var(--gold);font-size:14px" id="exportTabName">—</div>
+            <div class="hint" style="margin-top:3px" data-i18n="ex.hint">โค้ดด้านขวาใช้ค่าที่ปรับไว้ล่าสุด แก้ค่าเพิ่มได้ที่หน้าปรับแต่ง</div>
+          </div>
+        </div>
+        <button class="btn" id="backToWork" style="width:100%">← <span data-i18n="ex.back">กลับไปหน้าปรับแต่ง</span></button>
+      </div>
+    </div>
+    <div class="card">
+      <h3 data-i18n="gen.title">ตัวเลือกโค้ด</h3>
+      <div class="body">
+        <div class="field">
+          <label class="lbl" data-i18n="gen.device">อุปกรณ์ปลายทาง</label>
+          <select id="g_device">
+            <option value="pc">PC / Notebook (Windows, Linux, macOS)</option>
+            <option value="pi">Raspberry Pi 5 (Picamera2)</option>
+            <option value="jetson">NVIDIA Jetson (CSI / GStreamer)</option>
+            <option value="kinect">Kinect v1 + libfreenect</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="lbl" data-i18n="gen.input">แหล่งภาพในโค้ด</label>
+          <select id="g_input">
+            <option value="image" data-i18n="gen.in1">ไฟล์ภาพ</option>
+            <option value="camera" data-i18n="gen.in2">กล้องแบบเรียลไทม์</option>
+            <option value="video" data-i18n="gen.in3">ไฟล์วิดีโอ</option>
+          </select>
+        </div>
+        <label class="check"><input type="checkbox" id="g_fps" /><span data-i18n="gen.fps">แสดง FPS บนภาพ</span></label>
+        <label class="check"><input type="checkbox" id="g_save" /><span data-i18n="gen.save">บันทึกภาพผลลัพธ์ลงโฟลเดอร์</span></label>
+        <label class="check"><input type="checkbox" id="g_mqtt" /><span data-i18n="gen.mqtt">ส่งผลลัพธ์ออก MQTT (Node-RED / Dashboard)</span></label>
+        <label class="check"><input type="checkbox" id="g_th" checked /><span data-i18n="gen.th">คอมเมนต์ภาษาไทย</span></label>
+      </div>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="card" id="codeCard">
       <div class="code-head">
         <strong class="k" style="font-size:13.5px;color:var(--gold)" data-i18n="code.title">โค้ด Python ที่สร้างให้</strong>
         <span class="mono" style="font-size:11.5px;color:var(--ink-dim)" id="fileName">detect.py</span>
@@ -707,8 +838,15 @@ table.objs td{padding:3px 6px;border-bottom:1px solid #202027;color:#c2c2ca}
       </div>
       <pre class="code" id="code"></pre>
     </div>
+
   </div>
 </div>
+
+<nav id="jumpbar">
+  <button data-jump="stageCard">🖼 <span data-i18n="jump.stage">ผลลัพธ์</span></button>
+  <button data-jump="procCard">🎛 <span data-i18n="jump.proc">ปรับค่า</span></button>
+  <button data-jump="codeCard">🐍 <span data-i18n="jump.code">โค้ด</span></button>
+</nav>
 
 <footer>
   <b>TESR Vision Lab</b> — Thai Embedded System and Robotics · Learn → Build → Train → Deploy → Integrate → Scale<br>
@@ -736,7 +874,17 @@ const I18N = {
     'src.cam':'Open camera','src.shot':'Freeze frame','src.live':'🔴 Go live','src.pause':'Pause',
     'src.liveHint':'Live mode runs every frame through the active tab. Press Pause to freeze the image and click-pick colours comfortably.','src.scale':'Resize before processing',
     'src.scaleHint':'Smaller images run faster on edge devices, but small objects may disappear',
-    'proc.title':'2 · Processing','tab.circle':'Circles (Hough)','tab.color':'Colour (HSV)','tab.pre':'Image basics',
+    'proc.title':'2 · Processing','proc.reset':'Reset this tab','adv':'Advanced options',
+    'step.1':'Pick a sample, drop your own image, or go live with the camera',
+    'step.2':'Choose a task and drag the sliders — results update instantly',
+    'step.3':'Colour work: click the image to sample a colour, no guessing H S V',
+    'step.4':'Copy or download the Python code and run it',
+    'view.code':'Get Python code','vw.work':'Workspace','vw.export':'Get Python code',
+    'ex.summary':'Current task','ex.back':'Back to workspace',
+    'ex.hint':'The code on the right uses your latest settings. To change them, go back to the workspace.','jump.stage':'Result','jump.proc':'Controls','jump.code':'Code',
+    'c.md':'Minimum gap between circles — minDist','c.p2':'Detection strictness — param2',
+    'l.thr':'Line confirmation votes — threshold',
+    'tab.circle':'Find circles','tab.color':'Colour & count','tab.pre':'Image basics',
     'blur.none':'Off','c.blur':'Noise reduction before detection',
     'c.dpHint':'Accumulator resolution ratio — higher is looser',
     'c.mdHint':'Minimum distance between centres. Too small and you get piles of overlapping circles',
@@ -753,7 +901,7 @@ const I18N = {
     'col.areaHint':'Filters out small noise blobs before counting',
     'col.morph':'Morphology Open before finding contours',
     'p.blur':'Blur','p.th':'Threshold','p.morph':'Morphology','p.cont':'Find contours + count',
-    'gen.title':'3 · Code generation options','gen.device':'Target device','gen.input':'Image source in the code',
+    'gen.title':'Code options','gen.device':'Target device','gen.input':'Image source in the code',
     'gen.in1':'Image file','gen.in2':'Live camera','gen.in3':'Video file',
     'gen.fps':'Draw FPS on the frame','gen.save':'Save result images to a folder',
     'gen.mqtt':'Publish results over MQTT (Node-RED / dashboard)','gen.th':'Thai comments',
@@ -808,6 +956,7 @@ function setLang(l){
   document.getElementById('langEN').classList.toggle('on',l==='en');
   document.documentElement.lang=l;
   setLiveUI();
+  if(VIEW==='export') $('exportTabName').textContent=TAB_LABELS[TAB][l==='en'?1:0];
   render();
 }
 document.getElementById('langTH').onclick=()=>setLang('th');
@@ -1115,8 +1264,8 @@ function render(){
 }
 
 function doRender(){
-  if(!CV_READY) return;
-  if(LIVE ? !liveCanvas.width : !imgLoaded) return;
+  if(!CV_READY){ buildCode(params()); return; }
+  if(LIVE ? !liveCanvas.width : !imgLoaded){ buildCode(params()); return; }
   const P=params();
   const t0=performance.now();
 
@@ -1128,6 +1277,7 @@ function doRender(){
     $('cvMsg').textContent = LANG==='en'
       ? 'The browser blocked reading this image (canvas is tainted). Serve the folder over http, e.g. python -m http.server, or drag a file in instead.'
       : 'เบราว์เซอร์อ่านภาพนี้ไม่ได้ (canvas ถูกล็อก) ให้เปิดผ่านเว็บเซิร์ฟเวอร์ เช่น python -m http.server หรือใช้วิธีลากไฟล์มาวางแทน';
+    buildCode(params());
     return;
   }
   const w=Math.max(1,Math.round(full.cols*P.scale/100)), h=Math.max(1,Math.round(full.rows*P.scale/100));
@@ -1622,7 +1772,12 @@ function runHaar(src,H){
 
 function fillTable(data){
   const t=$('objTable');
-  if(!data||!data.head.length||!data.rows.length){t.innerHTML='';return;}
+  if(!data||!data.head.length||!data.rows.length){
+    t.innerHTML='<tr><td class="empty">'+(LANG==='en'
+      ?'Objects found will be listed here with their position and size'
+      :'วัตถุที่ตรวจพบจะแสดงรายการพร้อมตำแหน่งและขนาดที่นี่')+'</td></tr>';
+    return;
+  }
   let html='<tr>'+data.head.map(h=>'<th>'+h+'</th>').join('')+'</tr>';
   data.rows.slice(0,60).forEach(r=>{html+='<tr>'+r.map(c=>'<td>'+c+'</td>').join('')+'</tr>';});
   if(data.rows.length>60) html+='<tr><td colspan="'+data.head.length+'">… +'+(data.rows.length-60)+'</td></tr>';
@@ -2741,10 +2896,16 @@ function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g
 function highlight(src){
   return esc(src).split('\n').map(line=>{
     if(/^\s*#/.test(line)) return '<span class="c">'+line+'</span>';
-    let l=line;
-    l=l.replace(/(&quot;|")([^"]*)(&quot;|")/g,'<span class="s">$1$2$3</span>');
-    l=l.replace(/\b(def|import|from|if|else|elif|for|while|return|try|except|finally|with|as|not|in|and|or|True|False|None|break|continue|class)\b/g,'<span class="kw">$1</span>');
+    // 1) pull strings out as single private-use chars so later passes can't touch them
+    const strs=[];
+    let l=line.replace(/"""|"[^"]*"/g, m=>{ strs.push(m); return String.fromCharCode(0xE000+strs.length-1); });
+    // 2) trailing comment (safe now — any # inside a string is tokenized away)
+    l=l.replace(/#.*$/, m=>'\u0002'+m+'\u0003');
+    l=l.replace(/\b(def|import|from|if|else|elif|for|while|return|try|except|finally|with|as|not|in|and|or|True|False|None|break|continue|class|global)\b/g,'<span class="kw">$1</span>');
     l=l.replace(/\b(\d+\.?\d*)\b/g,'<span class="n">$1</span>');
+    l=l.replace(/\u0002([\s\S]*?)\u0003/g,'<span class="c">$1</span>');
+    // 3) re-insert strings
+    l=l.replace(/[\uE000-\uEFFF]/g, ch=>'<span class="s">'+strs[ch.charCodeAt(0)-0xE000]+'</span>');
     return l;
   }).join('\n');
 }
@@ -2773,9 +2934,56 @@ $('dlImg').onclick=()=>{
 };
 
 /* ---------------- boot ---------------- */
+/* ---------------- UX helpers ---------------- */
+/* ---------------- main views ---------------- */
+let VIEW='work';
+const TAB_LABELS={
+  circle:['⭕ หาวงกลม','⭕ Find circles'], color:['🎨 จับสี & นับชิ้น','🎨 Colour & count'],
+  pre:['🛠 ปรับแต่งภาพ','🛠 Image basics'], line:['📏 หาเส้นตรง','📏 Find lines'],
+  draw:['✏️ วาด & ข้อความ','✏️ Draw & text'], haar:['👁 ตา / หน้า / ยิ้ม','👁 Eyes / face / smile'],
+  face:['🪪 จำใบหน้า','🪪 Face recognition']};
+function setView(v){
+  VIEW=v;
+  $('viewWork').classList.toggle('hidden', v!=='work');
+  $('viewExport').classList.toggle('hidden', v!=='export');
+  document.querySelectorAll('[data-mainview]').forEach(b=>b.classList.toggle('on', b.dataset.mainview===v));
+  if(v==='export'){
+    buildCode(params());
+    $('exportTabName').textContent = TAB_LABELS[TAB][LANG==='en'?1:0];
+    const c=$('canvasResult');
+    if(c.width) $('exportPreview').src=c.toDataURL('image/png');
+  }
+  window.scrollTo({top:0});
+}
+document.querySelectorAll('[data-mainview]').forEach(b=>b.onclick=()=>setView(b.dataset.mainview));
+$('backToWork').onclick=()=>setView('work');
+
+$('resetPane').onclick=()=>{
+  const pane=$('pane-'+TAB);
+  pane.querySelectorAll('input,select').forEach(el=>{
+    if(el.type==='checkbox') el.checked=el.defaultChecked;
+    else if(el.tagName==='SELECT'){ [...el.options].forEach(o=>o.selected=o.defaultSelected); }
+    else el.value=el.defaultValue;
+  });
+  syncLabels(); render();
+  toast(LANG==='en'?'This tab is back to defaults':'คืนค่าเริ่มต้นของแท็บนี้แล้ว');
+};
+$('gotoCode').onclick=()=>setView('export');
+document.querySelectorAll('#jumpbar button').forEach(b=>b.onclick=()=>{
+  if(b.dataset.jump==='codeCard'){ setView('export'); return; }
+  setView('work');
+  $(b.dataset.jump).scrollIntoView({behavior:'smooth'});
+});
+$('stepsClose').onclick=()=>{
+  $('steps').style.display='none';
+  try{ localStorage.setItem('tesr_steps_hidden','1'); }catch(e){}
+};
+try{ if(localStorage.getItem('tesr_steps_hidden')==='1') $('steps').style.display='none'; }catch(e){}
+
 syncLabels();
 renderShapeList();
 renderPeople();
+render();
 loadUrl('samples/ex2.jpg','ex2.jpg');
 imgEl.onerror=()=>{ /* first sample may fail on file:// — user can still drop a file */ };
 </script>
