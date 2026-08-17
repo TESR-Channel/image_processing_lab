@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/logo.png" width="130" alt="TESR — Thai Embedded System and Robotics" />
+<img src="/image_processing_lab/assets/logo.png" width="130" alt="TESR — Thai Embedded System and Robotics" />
 
 # TESR Vision Lab
 
