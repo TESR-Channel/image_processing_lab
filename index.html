@@ -269,9 +269,49 @@ details.adv .field:last-child{margin-bottom:9px}
 .vbtn.on{background:var(--crimson);color:#fff}
 #viewExport pre.code{max-height:74vh}
 @media (max-width:640px){
-  .viewswitch{order:3;width:100%;justify-content:center}
   header{flex-wrap:wrap}
 }
+
+/* ---------- sticky tool bar ---------- */
+header{position:static}
+#toolbar{
+  position:sticky;top:0;z-index:45;display:flex;align-items:center;gap:10px;
+  padding:8px 14px;background:rgba(15,15,18,.97);backdrop-filter:blur(9px);
+  border-bottom:1px solid var(--line);
+}
+#toolbar .tabs{
+  display:flex;flex-wrap:nowrap;flex:1;min-width:0;overflow-x:auto;gap:8px;padding:0;border:none;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+}
+#toolbar .tabs::-webkit-scrollbar{display:none}
+#toolbar .tab{flex:none;white-space:nowrap;padding:8px 12px;grid-template-columns:none}
+#toolbar .viewswitch{flex:none}
+.card{scroll-margin-top:64px}
+
+/* workspace grid: source+params left, stage right */
+#viewWork{grid-template-areas:"src stage" "proc stage" ". stage";
+  grid-template-columns:330px minmax(0,1fr);grid-template-rows:auto auto 1fr}
+#sourceCard{grid-area:src}
+#procCard{grid-area:proc}
+#stageStack{grid-area:stage;min-width:0}
+
+/* mobile: params first, result next, image source last; toolbar always on top */
+@media (max-width:1080px){
+  #viewWork{display:flex;flex-direction:column}
+  #procCard{order:1}
+  #stageStack{order:2}
+  #sourceCard{order:3}
+  #toolbar .viewswitch .vbtn span{display:none}   /* icons only, save width */
+  #toolbar .viewswitch .vbtn{padding:7px 10px}
+}
+
+/* floating mini result preview (mobile) */
+#miniPreview{
+  position:fixed;right:10px;bottom:64px;z-index:55;display:none;
+  border:2px solid var(--gold-dim);border-radius:10px;overflow:hidden;
+  box-shadow:0 4px 18px rgba(0,0,0,.65);background:#000;cursor:pointer;line-height:0;
+}
+@media (max-width:1080px){ #miniPreview.show{display:block} }
 td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none !important}
 </style>
 </head>
@@ -284,10 +324,6 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
     <p data-i18n="tagline">ปรับค่า OpenCV บนเว็บ แล้วรับโค้ด Python ไปรันบน Edge ได้ทันที</p>
   </div>
   <div class="header-actions">
-    <div class="viewswitch">
-      <button class="vbtn on" data-mainview="work">🎛 <span data-i18n="vw.work">ปรับแต่ง</span></button>
-      <button class="vbtn" data-mainview="export">🐍 <span data-i18n="vw.export">รับโค้ด Python</span></button>
-    </div>
     <button class="pill on" id="langTH">ไทย</button>
     <button class="pill" id="langEN">EN</button>
   </div>
@@ -308,13 +344,27 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
   <button id="stepsClose" title="ซ่อน">✕</button>
 </div>
 
+<div id="toolbar">
+  <div class="tabs">
+<button class="tab on" data-tab="circle"><span class="ico">⭕</span><span data-i18n="tab.circle">หาวงกลม</span></button>
+        <button class="tab" data-tab="color"><span class="ico">🎨</span><span data-i18n="tab.color">จับสี &amp; นับชิ้น</span></button>
+        <button class="tab" data-tab="line"><span class="ico">📏</span><span data-i18n="tab.line">หาเส้นตรง</span></button>
+        <button class="tab" data-tab="pre"><span class="ico">🛠</span><span data-i18n="tab.pre">ปรับแต่งภาพ</span></button>
+        <button class="tab" data-tab="draw"><span class="ico">✏️</span><span data-i18n="tab.draw">วาด &amp; ข้อความ</span></button>
+        <button class="tab" data-tab="haar"><span class="ico">👁</span><span data-i18n="tab.haar">ตา / หน้า / ยิ้ม</span></button>
+        <button class="tab" data-tab="face"><span class="ico">🪪</span><span data-i18n="tab.face">จำใบหน้า</span></button>
+  </div>
+  <div class="viewswitch">
+    <button class="vbtn on" data-mainview="work">🎛 <span data-i18n="vw.work">ปรับแต่ง</span></button>
+    <button class="vbtn" data-mainview="export">🐍 <span data-i18n="vw.export">รับโค้ด</span></button>
+  </div>
+</div>
+
 <div class="wrap" id="viewWork">
 
-  <!-- ============ LEFT: CONTROLS ============ -->
-  <div class="stack">
-
-    <div class="card">
-      <h3 data-i18n="src.title">1 · ภาพต้นทาง</h3>
+  <!-- ============ CONTROLS ============ -->
+    <div class="card" id="sourceCard">
+      <h3 data-i18n="src.title">ภาพต้นทาง</h3>
       <div class="body">
         <div id="drop" tabindex="0" data-i18n="src.drop">ลากภาพมาวาง หรือคลิกเพื่อเลือกไฟล์</div>
         <input type="file" id="file" accept="image/*" class="hidden" />
@@ -335,19 +385,9 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
     </div>
 
     <div class="card" id="procCard">
-      <h3><span data-i18n="proc.title">2 · การประมวลผล</span>
+      <h3><span data-i18n="proc.title">การประมวลผล</span>
         <button class="btn" id="resetPane" style="margin-left:auto;padding:4px 10px;font-size:11.5px">↺ <span data-i18n="proc.reset">รีเซ็ตแท็บนี้</span></button>
       </h3>
-      <div class="tabs">
-        <button class="tab on" data-tab="circle"><span class="ico">⭕</span><span data-i18n="tab.circle">หาวงกลม</span></button>
-        <button class="tab" data-tab="color"><span class="ico">🎨</span><span data-i18n="tab.color">จับสี &amp; นับชิ้น</span></button>
-        <button class="tab" data-tab="line"><span class="ico">📏</span><span data-i18n="tab.line">หาเส้นตรง</span></button>
-        <button class="tab" data-tab="pre"><span class="ico">🛠</span><span data-i18n="tab.pre">ปรับแต่งภาพ</span></button>
-        <button class="tab" data-tab="draw"><span class="ico">✏️</span><span data-i18n="tab.draw">วาด &amp; ข้อความ</span></button>
-        <button class="tab" data-tab="haar"><span class="ico">👁</span><span data-i18n="tab.haar">ตา / หน้า / ยิ้ม</span></button>
-        <button class="tab" data-tab="face"><span class="ico">🪪</span><span data-i18n="tab.face">จำใบหน้า</span></button>
-      </div>
-
       <!-- CIRCLE -->
       <div class="body pane" id="pane-circle">
         <div class="field">
@@ -741,10 +781,8 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
       </div>
     </div>
 
-  </div>
-
-  <!-- ============ RIGHT: STAGE + CODE ============ -->
-  <div class="stack">
+  <!-- ============ STAGE ============ -->
+  <div class="stack" id="stageStack">
 
     <div class="card" id="stageCard">
       <div class="stage-head">
@@ -847,9 +885,12 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
   </div>
 </div>
 
+<div id="miniPreview" title="แตะเพื่อไปที่ภาพผลลัพธ์"><canvas id="miniCanvas" width="132" height="90"></canvas></div>
+
 <nav id="jumpbar">
-  <button data-jump="stageCard">🖼 <span data-i18n="jump.stage">ผลลัพธ์</span></button>
   <button data-jump="procCard">🎛 <span data-i18n="jump.proc">ปรับค่า</span></button>
+  <button data-jump="stageCard">🖼 <span data-i18n="jump.stage">ผลลัพธ์</span></button>
+  <button data-jump="sourceCard">📷 <span data-i18n="jump.src">ภาพ</span></button>
   <button data-jump="codeCard">🐍 <span data-i18n="jump.code">โค้ด</span></button>
 </nav>
 
@@ -875,11 +916,11 @@ const I18N = {
   th:{}, // Thai text is already in the HTML (default)
   en:{
     'tagline':'Tune OpenCV in the browser, then take the Python code straight to your edge device',
-    'src.title':'1 · Source image','src.drop':'Drop an image here, or click to choose a file',
+    'src.title':'Source image','src.drop':'Drop an image here, or click to choose a file',
     'src.cam':'Open camera','src.shot':'Freeze frame','src.live':'🔴 Go live','src.pause':'Pause',
     'src.liveHint':'Live mode runs every frame through the active tab. Press Pause to freeze the image and click-pick colours comfortably.','src.scale':'Resize before processing',
     'src.scaleHint':'Smaller images run faster on edge devices, but small objects may disappear',
-    'proc.title':'2 · Processing','proc.reset':'Reset this tab','adv':'Advanced options',
+    'proc.title':'Processing','proc.reset':'Reset this tab','adv':'Advanced options',
     'step.1':'Pick a sample, drop your own image, or go live with the camera',
     'step.2':'Choose a task and drag the sliders — results update instantly',
     'step.3':'Colour work: click the image to sample a colour, no guessing H S V',
@@ -887,7 +928,7 @@ const I18N = {
     'view.code':'Get Python code','vw.work':'Workspace','vw.export':'Get Python code',
     'dw.title':'Some files are missing from this server','dw.body':'The samples/ or assets/ folder was not fully uploaded to the repo. The page still works, but sample images and face detection will be missing. Upload every folder per the README layout, then refresh.',
     'ex.summary':'Current task','ex.back':'Back to workspace',
-    'ex.hint':'The code on the right uses your latest settings. To change them, go back to the workspace.','jump.stage':'Result','jump.proc':'Controls','jump.code':'Code',
+    'ex.hint':'The code on the right uses your latest settings. To change them, go back to the workspace.','jump.stage':'Result','jump.proc':'Controls','jump.code':'Code','jump.src':'Image',
     'c.md':'Minimum gap between circles — minDist','c.p2':'Detection strictness — param2',
     'l.thr':'Line confirmation votes — threshold',
     'tab.circle':'Find circles','tab.color':'Colour & count','tab.pre':'Image basics',
@@ -1121,6 +1162,7 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   TAB=t.dataset.tab;
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
   ['circle','color','pre','line','draw','haar','face'].forEach(p=>$('pane-'+p).classList.toggle('hidden',p!==TAB));
+  if(VIEW==='export') $('exportTabName').textContent=TAB_LABELS[TAB][LANG==='en'?1:0];
   render();
 });
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{
@@ -1317,6 +1359,7 @@ function doRender(){
   $('st_time').textContent=(performance.now()-t0).toFixed(1)+' ms';
   fillTable(rows);
   buildCode(P);
+  drawMini(); syncMini();
 }
 
 function drawBadge(dst,text){
@@ -3001,9 +3044,31 @@ function setView(v){
     if(c.width) $('exportPreview').src=c.toDataURL('image/png');
   }
   window.scrollTo({top:0});
+  syncMini();
 }
 document.querySelectorAll('[data-mainview]').forEach(b=>b.onclick=()=>setView(b.dataset.mainview));
 $('backToWork').onclick=()=>setView('work');
+
+/* floating mini result preview (mobile) */
+let miniAway=false;
+function drawMini(){
+  const c=$('canvasResult'); if(!c.width) return;
+  const mc=$('miniCanvas');
+  const w=132, h=Math.max(60,Math.round(c.height*132/c.width));
+  if(mc.width!==w||mc.height!==h){ mc.width=w; mc.height=h; }
+  mc.getContext('2d').drawImage(c,0,0,w,h);
+}
+function syncMini(){
+  const on = miniAway && VIEW==='work' && window.innerWidth<=1080 && $('canvasResult').width>0;
+  $('miniPreview').classList.toggle('show',on);
+  if(on) drawMini();
+}
+if('IntersectionObserver' in window){
+  new IntersectionObserver(es=>{ miniAway=!es[0].isIntersecting; syncMini(); },{threshold:0.05})
+    .observe($('canvasResult'));
+}
+window.addEventListener('resize',syncMini);
+$('miniPreview').onclick=()=>$('stageCard').scrollIntoView({behavior:'smooth'});
 
 $('resetPane').onclick=()=>{
   const pane=$('pane-'+TAB);
