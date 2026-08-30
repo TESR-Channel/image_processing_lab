@@ -109,12 +109,18 @@ If "Go live" cannot find a camera on the Pi while it works on a PC, check these 
 3. **CSI camera module (ribbon cable)** - Chromium talks V4L2 and cannot see the libcamera stack directly. Start the browser through the libcamera shim:
    ```bash
    sudo apt install libcamera-tools
-   libcamerify chromium-browser
+   libcamerify chromium        # Raspberry Pi OS Bookworm; older releases use: libcamerify chromium-browser
    ```
    First check the module itself works: `rpicam-hello -t 3000`.
 4. **Camera busy** - close anything else using it (`rpicam-hello`, VLC, another tab).
 5. **Permission denied earlier** - click the camera/lock icon in the address bar, allow, retry.
 6. If several `/dev/video*` nodes exist, the page now shows a **"Choose camera"** dropdown after the first permission grant - try each entry; on the Pi the first node is not always the capture node.
+
+7. **USB cam exists in `v4l2-ctl --list-devices` but Chromium says "No camera available"** — almost always one of:
+   - Chromium was opened **before** the camera was plugged in. Close every window (`pkill chromium`) and reopen — do NOT use libcamerify for USB cameras.
+   - Another program is holding the device (a Python script left running in Thonny, rpicam, VLC). Check with `sudo fuser -v /dev/video0` and close it.
+   - Sanity-check the camera captures outside the browser: `v4l2-ctl -d /dev/video0 --stream-mmap --stream-count=3 --stream-to=/dev/null` (three `<` marks = frames captured). If this fails, try another USB port.
+   - The user must be in the `video` group (`groups` should list it).
 
 The page also tries multiple fallback strategies automatically (relaxed constraints, then every detected device) and prints the exact reason in the top message bar when it still fails.
 
@@ -219,12 +225,18 @@ Deploy ขึ้น GitHub Pages: **Settings → Pages → Source: GitHub Action
 3. **กล้อง CSI (สายแพ)** — Chromium คุยผ่าน V4L2 มองไม่เห็น libcamera โดยตรง ต้องเปิดเบราว์เซอร์ผ่านตัวกลาง:
    ```bash
    sudo apt install libcamera-tools
-   libcamerify chromium-browser
+   libcamerify chromium        # Pi OS Bookworm ชื่อ chromium เฉย ๆ (รุ่นเก่าใช้ chromium-browser)
    ```
    ทดสอบตัวกล้องก่อนด้วย `rpicam-hello -t 3000`
 4. **กล้องถูกใช้งานอยู่** — ปิด rpicam-hello, VLC หรือแท็บอื่นที่ใช้กล้องค้างไว้
 5. **เคยกดปฏิเสธสิทธิ์** — กดไอคอนกล้อง/กุญแจในแถบ address อนุญาตใหม่
 6. ถ้ามี `/dev/video*` หลายตัว หน้าเว็บจะมี **dropdown "เลือกกล้อง"** โผล่หลังอนุญาตครั้งแรก ให้ลองไล่ทีละตัว — บน Pi ตัวแรกไม่ใช่ตัวจับภาพเสมอไป
+
+7. **`v4l2-ctl --list-devices` เห็นกล้อง USB แต่ Chromium ขึ้น "No camera available"** — เกือบทั้งหมดคือ:
+   - เปิด Chromium **ก่อน**เสียบกล้อง → ปิดทุกหน้าต่างให้สนิท (`pkill chromium`) แล้วเปิดใหม่ (กล้อง USB **ไม่ต้อง** libcamerify)
+   - มีโปรแกรมถือกล้องค้าง (สคริปต์ Python ใน Thonny, rpicam, VLC) → เช็คด้วย `sudo fuser -v /dev/video0` แล้วปิด
+   - ทดสอบว่ากล้องจับภาพได้จริงนอกเบราว์เซอร์: `v4l2-ctl -d /dev/video0 --stream-mmap --stream-count=3 --stream-to=/dev/null` (ขึ้น `<` สามตัว = จับเฟรมได้) ถ้า fail ลองย้ายพอร์ต USB
+   - ผู้ใช้ต้องอยู่ในกลุ่ม `video` (สั่ง `groups` ต้องเห็นคำว่า video)
 
 หน้าเว็บจะลองเปิดกล้องหลายวิธีให้อัตโนมัติอยู่แล้ว (ผ่อนเงื่อนไข → ไล่ทุก device) และถ้ายังไม่ได้จะบอกสาเหตุที่แท้จริงในแถบข้อความบนสุด
 
