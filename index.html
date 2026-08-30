@@ -326,6 +326,7 @@ header{position:static}
 #ctxMenu kbd{margin-left:auto;font-size:10px;color:var(--ink-dim);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
 .shape-row.sel{border-color:var(--gold-dim) !important;background:rgba(212,175,55,.08)}
 #canvasResult.moving{cursor:move}
+#canvasResult.drawmode{touch-action:none;cursor:crosshair}
 td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none !important}
 </style>
 </head>
@@ -663,10 +664,11 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
             <option value="circle">cv2.circle</option>
             <option value="text">cv2.putText</option>
           </select>
-          <div class="hint" data-i18n="d.clickHint">คลิกพื้นที่ว่าง = วางจุด 1/2 · คลิกรูปทรง = เลือก แล้วลากย้ายได้ · คลิกขวา = เมนู · กด Delete = ลบที่เลือก</div>
+          <div class="hint" data-i18n="d.clickHint">🖱 กดที่จุดเริ่ม → ลากค้าง → ปล่อยที่จุดปลาย = วาดเสร็จลงภาพเลย · วงกลม: กดตรงกลางแล้วลากออกเป็นรัศมี · ข้อความ: แตะจุดที่จะวาง · คลิกรูปทรงเดิม = เลือก/ลากย้าย · คลิกขวา = เมนู · Delete = ลบ</div>
         </div>
+        <div class="hint hidden" id="d_noSel" data-i18n="d.noSel">ยังไม่ได้เลือกรูปทรง — ลากวาดบนภาพ หรือคลิกรูปทรงที่วาดแล้วเพื่อปรับละเอียดด้วยแถบเลื่อนด้านล่าง</div>
         <div class="field" id="d_p1wrap">
-          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="d.p1">จุดที่ 1 (x, y) %</label><b id="d_p1V">25, 25</b></div>
+          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="d.p1">จุดที่ 1 (x, y) % — ของรูปทรงที่เลือก</label><b id="d_p1V">25, 25</b></div>
           <input type="range" id="d_x1" min="0" max="100" value="25" />
           <input type="range" id="d_y1" min="0" max="100" value="25" />
         </div>
@@ -708,7 +710,6 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
         <label class="check"><input type="checkbox" id="d_fill" /><span data-i18n="d.fill">ทึบ (thickness = -1)</span></label>
         <label class="check"><input type="checkbox" id="d_aa" checked /><span data-i18n="d.aa">ขอบเรียบ (cv2.LINE_AA)</span></label>
         <div class="row" style="margin-top:6px">
-          <button class="btn primary" id="d_add" style="flex:1" data-i18n="d.add">เพิ่มลงภาพ</button>
           <button class="btn" id="d_clear" style="flex:1" data-i18n="d.clear">ล้างทั้งหมด</button>
         </div>
         <button class="btn hidden" id="d_delSel" style="width:100%;margin-top:8px;border-color:var(--err);color:#e8909d">🗑 <span data-i18n="d.delSel">ลบรูปทรงที่เลือก (Delete)</span></button>
@@ -992,9 +993,10 @@ const I18N = {
     'l.filter':'Filter by line angle','l.angle':'Angle range (degrees)',
     'l.angleHint':'0 = horizontal, 90 = vertical. Useful for floor markings or conveyor edges',
     'l.out':'Result image','l.out1':'Lines on the original','l.out2':'Canny edge map','l.out3':'Lines on the edge map',
-    'd.type':'Shape','d.clickHint':'Click empty space to place point 1/2 · click a shape to select, then drag to move · right-click for the menu · press Delete to remove',
-    'd.delSel':'Delete selected shape (Delete)','ctx.del':'Delete','ctx.dup':'Duplicate',
-    'd.p1':'Point 1 (x, y) %','d.p2':'Point 2 (x, y) %','d.r':'Radius (% of the shorter side)',
+    'd.type':'Shape','d.clickHint':'Press at the start point, drag, release at the end point - the shape is committed on release. Circle: press the centre and drag out the radius. Text: tap to stamp. Click an existing shape to select and drag-move it. Right-click for the menu, Delete to remove.',
+    'd.delSel':'Delete selected shape (Delete)','d.noSel':'Nothing selected - drag on the canvas to draw, or click a drawn shape to fine-tune it with the sliders below.',
+    'd.p1':'Point 1 (x, y) % - selected shape','ctx.del':'Delete','ctx.dup':'Duplicate',
+    'd.p2':'Point 2 (x, y) %','d.r':'Radius (% of the shorter side)',
     'd.text':'Text','d.thaiHint':'cv2.putText cannot draw Thai text. For Thai, render through PIL and convert back.',
     'd.color':'Colour','d.fill':'Filled (thickness = -1)','d.aa':'Smooth edges (cv2.LINE_AA)',
     'd.add':'Add to image','d.clear':'Clear all',
@@ -1182,6 +1184,7 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   TAB=t.dataset.tab;
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
   ['circle','color','pre','line','draw','haar','face'].forEach(p=>$('pane-'+p).classList.toggle('hidden',p!==TAB));
+  $('canvasResult').classList.toggle('drawmode', TAB==='draw');
   if(VIEW==='export') $('exportTabName').textContent=TAB_LABELS[TAB][LANG==='en'?1:0];
   render();
 });
@@ -1219,8 +1222,12 @@ function setSwatch(r,g,b,hsv){
 
 /* ---------------- bind all inputs ---------------- */
 document.querySelectorAll('input[type=range],input[type=checkbox],input[type=color],input[type=text],select').forEach(el=>{
-  el.addEventListener('input',()=>{ syncLabels(); render(); });
-  el.addEventListener('change',()=>{ syncLabels(); render(); });
+  const onEdit=()=>{
+    if(el.id&&el.id.indexOf('d_')===0) applyControlsToSelection();
+    syncLabels(); render();
+  };
+  el.addEventListener('input',onEdit);
+  el.addEventListener('change',onEdit);
 });
 function syncLabels(){
   $('scaleV').textContent=$('scale').value+'%';
@@ -1261,8 +1268,11 @@ function syncLabels(){
   $('d_fsV').textContent=(+$('d_fs').value).toFixed(1);
   $('d_thV').textContent=$('d_fill').checked?'-1':$('d_th').value;
   const dt=$('d_type').value;
-  $('d_p2wrap').classList.toggle('hidden', dt==='circle'||dt==='text');
-  $('d_rwrap').classList.toggle('hidden', dt!=='circle');
+  const hasSel = (typeof selShape!=='undefined') && selShape!==null;
+  $('d_noSel').classList.toggle('hidden', hasSel);
+  $('d_p1wrap').classList.toggle('hidden', !hasSel);
+  $('d_p2wrap').classList.toggle('hidden', !hasSel || dt==='circle'||dt==='text');
+  $('d_rwrap').classList.toggle('hidden', !hasSel || dt!=='circle');
   $('d_textwrap').classList.toggle('hidden', dt!=='text');
   const dc=hex2bgr($('d_color').value);
   $('d_colorInfo').textContent='BGR: ('+dc.join(', ')+')';
@@ -1313,7 +1323,7 @@ function params(){
       thr:Math.max(1,+$('l_thr').value),minLen:+$('l_min').value,gap:+$('l_gap').value,
       filter:$('l_filter').checked,a1:Math.min(+$('l_a1').value,+$('l_a2').value),a2:Math.max(+$('l_a1').value,+$('l_a2').value),
       out:$('l_out').value,thick:+$('l_thick').value},
-    draw:{shapes:SHAPES,editor:editorShape()},
+    draw:{shapes:SHAPES,ghost:(typeof ghostShape==='function')?ghostShape():null},
     haar:{cascade:$('h_cascade').value,roi:$('h_roi').checked&&$('h_cascade').value.indexOf('frontalface')<0,
       sf:Math.max(1.01,+$('h_sf').value),mn:+$('h_mn').value,ms:+$('h_ms').value,
       eq:$('h_eq').checked,label:$('h_label').checked},
@@ -1759,13 +1769,12 @@ function renderShapeList(){
   });
   wrap.querySelectorAll('[data-sel]').forEach(r=>r.onclick=()=>{ setSel(+r.dataset.sel); render(); });
 }
-$('d_add').onclick=()=>{SHAPES.push(editorShape());nextPoint=1;setSel(SHAPES.length-1);render();};
 $('d_clear').onclick=()=>{SHAPES=[];setSel(null);render();};
 
 function runDraw(src,D){
   const dst=src.clone();
   D.shapes.forEach(sh=>drawShape(dst,sh));
-  drawShape(dst,D.editor);
+  if(D.ghost) drawShape(dst,D.ghost);
   if(selShape!==null && SHAPES[selShape]){
     const bb=shapeBBox(SHAPES[selShape],dst.cols,dst.rows), m=6;
     cv.rectangle(dst,new cv.Point(bb.x-m,bb.y-m),new cv.Point(bb.x+bb.w+m,bb.y+bb.h+m),
@@ -1965,6 +1974,7 @@ function shapeBBox(sh,w,h){
 function setSel(i){
   selShape=(i===null||i<0)?null:i;
   $('d_delSel').classList.toggle('hidden', selShape===null);
+  if(selShape!==null) loadSelIntoControls();
   renderShapeList();
 }
 function deleteSelected(){
@@ -1982,6 +1992,23 @@ function duplicateSelected(){
 $('d_delSel').onclick=deleteSelected;
 
 const cvsR=$('canvasResult');
+let drawingNew=null;   // {x1,y1,cur:{x,y}} in 0-1 fractions while rubber-banding a new shape
+
+function frac(pt){ return {x:pt.x/srcMat.cols, y:pt.y/srcMat.rows}; }
+function styleFromControls(){
+  const e=editorShape();
+  return {font:e.font,fs:e.fs,bgr:e.bgr,th:e.th,aa:e.aa,text:e.text};
+}
+function ghostShape(){
+  if(!drawingNew) return null;
+  const st=styleFromControls(), t=$('d_type').value;
+  if(t==='circle'){
+    const r=Math.hypot(drawingNew.cur.x-drawingNew.x1, drawingNew.cur.y-drawingNew.y1);
+    return Object.assign({type:'circle',x1:drawingNew.x1,y1:drawingNew.y1,x2:drawingNew.cur.x,y2:drawingNew.cur.y,r:r},st);
+  }
+  return Object.assign({type:t,x1:drawingNew.x1,y1:drawingNew.y1,x2:drawingNew.cur.x,y2:drawingNew.cur.y,r:0.25},st);
+}
+
 cvsR.addEventListener('pointerdown',e=>{
   if(TAB!=='draw'||e.button!==0) return;
   const pt=canvasPt(e); if(!pt) return;
@@ -1994,17 +2021,29 @@ cvsR.addEventListener('pointerdown',e=>{
     cvsR.classList.add('moving');
     render(); return;
   }
-  // empty space → place editor points (old behaviour) and clear the selection
+  const f=frac(pt), t=$('d_type').value;
+  if(t==='text'){
+    // stamp the text where the finger lands, then let the same press drag it around
+    const sh=Object.assign({type:'text',x1:f.x,y1:f.y,x2:f.x,y2:f.y,r:0.25},styleFromControls());
+    SHAPES.push(sh);
+    setSel(SHAPES.length-1);
+    dragInfo={idx:SHAPES.length-1,sx:pt.x,sy:pt.y,o:{x1:sh.x1,y1:sh.y1,x2:sh.x2,y2:sh.y2},moved:false};
+    cvsR.setPointerCapture(e.pointerId);
+    render(); return;
+  }
   setSel(null);
-  const fx=Math.round(pt.x/srcMat.cols*100), fy=Math.round(pt.y/srcMat.rows*100);
-  const t=$('d_type').value;
-  if(t==='circle'||t==='text'||nextPoint===1){ $('d_x1').value=fx; $('d_y1').value=fy; nextPoint=2; }
-  else { $('d_x2').value=fx; $('d_y2').value=fy; nextPoint=1; }
-  syncLabels(); render();
+  drawingNew={x1:f.x,y1:f.y,cur:{x:f.x,y:f.y}};
+  cvsR.setPointerCapture(e.pointerId);
+  render();
 });
 cvsR.addEventListener('pointermove',e=>{
-  if(!dragInfo||TAB!=='draw') return;
-  const pt=canvasPt(e); if(!pt) return;
+  if(TAB!=='draw') return;
+  const pt=canvasPt(e);
+  if(drawingNew){
+    if(pt){ drawingNew.cur=frac(pt); render(); }
+    return;
+  }
+  if(!dragInfo||!pt) return;
   const dx=(pt.x-dragInfo.sx)/srcMat.cols, dy=(pt.y-dragInfo.sy)/srcMat.rows;
   if(Math.abs(dx)+Math.abs(dy)>0.002) dragInfo.moved=true;
   const sh=SHAPES[dragInfo.idx], o=dragInfo.o;
@@ -2014,13 +2053,48 @@ cvsR.addEventListener('pointermove',e=>{
   render();
 });
 function endDrag(){
+  if(drawingNew){
+    const g=ghostShape();
+    drawingNew=null;
+    const bigEnough = g.type==='circle' ? g.r>=0.008
+                    : Math.max(Math.abs(g.x2-g.x1),Math.abs(g.y2-g.y1))>=0.012;
+    if(bigEnough){ SHAPES.push(g); setSel(SHAPES.length-1); }
+    render(); return;
+  }
   if(!dragInfo) return;
   dragInfo=null;
   cvsR.classList.remove('moving');
+  loadSelIntoControls();
   renderShapeList();
 }
 cvsR.addEventListener('pointerup',endDrag);
 cvsR.addEventListener('pointercancel',endDrag);
+
+/* selected shape <-> sliders */
+let loadingSel=false;
+function loadSelIntoControls(){
+  if(selShape===null||!SHAPES[selShape]) return;
+  loadingSel=true;
+  const sh=SHAPES[selShape];
+  $('d_type').value=sh.type;
+  $('d_x1').value=Math.round(sh.x1*100); $('d_y1').value=Math.round(sh.y1*100);
+  $('d_x2').value=Math.round(sh.x2*100); $('d_y2').value=Math.round(sh.y2*100);
+  $('d_r').value=Math.round(sh.r*100);
+  $('d_text').value=sh.text||'OpenCV';
+  $('d_font').value=sh.font; $('d_fs').value=sh.fs;
+  $('d_color').value='#'+[sh.bgr[2],sh.bgr[1],sh.bgr[0]].map(v=>v.toString(16).padStart(2,'0')).join('');
+  $('d_fill').checked=sh.th===-1;
+  if(sh.th>0) $('d_th').value=sh.th;
+  $('d_aa').checked=sh.aa;
+  loadingSel=false;
+  syncLabels();
+}
+function applyControlsToSelection(){
+  if(loadingSel||selShape===null||!SHAPES[selShape]||TAB!=='draw') return;
+  const e=editorShape();
+  SHAPES[selShape]=e;
+  renderShapeList();
+}
 
 /* right-click menu */
 function hideCtx(){ $('ctxMenu').classList.add('hidden'); }
@@ -2059,7 +2133,7 @@ function header(title,G,extra,opts){
   o.push('#!/usr/bin/env python3');
   o.push('# -*- coding: utf-8 -*-');
   o.push('"""');
-  o.push('TESR Image Processing Lab — '+title);
+  o.push('TESR Image Processing Lab - '+title);
   o.push('Thai Embedded System and Robotics (TESR)');
   o.push('');
   o.push(L('สร้างจากเครื่องมือ TESR Image Processing Lab โดยจูนค่าจากภาพ: '+currentName,
@@ -2410,7 +2484,7 @@ function codeColor(P){
     o.push('LOWER_HSV = np.array(['+K.lo.map(v=>Math.max(0,v)).join(', ')+'])');
     o.push('UPPER_HSV = np.array(['+K.hi.join(', ')+'])');
   }
-  o.push('MIN_AREA = '+K.area+'         # '+L('พื้นที่ขั้นต่ำของ contour ที่จะนับ (px²)','minimum contour area to count (px²)'));
+  o.push('MIN_AREA = '+K.area+'         # '+L('พื้นที่ขั้นต่ำของ contour ที่จะนับ (px^2)','minimum contour area to count (px^2)'));
   o.push('USE_OPEN = '+(K.open?'True':'False')+'      # '+L('Morphology Open ช่วยลบจุด noise เล็ก ๆ','Morphology Open removes small noise blobs'));
   o.push('OUTPUT_MODE = "'+K.out+'"   # mask | masked | contour');
   o.push('');
@@ -2967,7 +3041,7 @@ function codeLine(P){
 
 function codeDraw(P){
   const G=P.gen, D=P.draw;
-  const list = D.shapes.length? D.shapes : [D.editor];
+  const list = D.shapes;
   const o=header('Drawing Shapes and Text',G,
     [L('พิกัดเก็บเป็นสัดส่วน 0-1 ของขนาดภาพ ย้ายไปกล้องความละเอียดอื่นก็ยังวางถูกที่',
        'Coordinates are stored as 0-1 fractions of the frame, so they land correctly at any resolution.'),
@@ -2978,6 +3052,7 @@ function codeDraw(P){
   o.push('WINDOW_NAME = "TESR Drawing"');
   o.push('SCALE_PERCENT = '+P.scale);
   o.push('SHAPES = [');
+  if(!list.length) o.push('    # Draw shapes on the browser canvas first - entries will appear here.');
   list.forEach(sh=>o.push('    '+pyShape(sh)+','));
   o.push(']');
   o.push('');
@@ -3124,9 +3199,17 @@ function codeHaar(P){
 }
 
 let CODE='';
+function asciiSafe(t){
+  // clipboard round-trips (browser -> VNC/RDP -> Thonny) mangle fancy punctuation
+  // into invalid bytes, so generated code sticks to plain ASCII equivalents
+  return t.replace(/[\u2014\u2013]/g,'-').replace(/[\u2018\u2019]/g,"'")
+          .replace(/[\u201C\u201D]/g,'"').replace(/\u00B2/g,'^2')
+          .replace(/\u00B7/g,'-').replace(/\u00D7/g,'x').replace(/\u00A0/g,' ')
+          .replace(/\u2192/g,'->').replace(/\u00B0/g,' deg').replace(/\u2026/g,'...');
+}
 function buildCode(P){
-  CODE = {circle:codeCircle,color:codeColor,pre:codePre,line:codeLine,draw:codeDraw,
-          haar:codeHaar,face:codeFace}[TAB](P);
+  CODE = asciiSafe({circle:codeCircle,color:codeColor,pre:codePre,line:codeLine,draw:codeDraw,
+          haar:codeHaar,face:codeFace}[TAB](P));
   $('fileName').textContent=fileNameFor();
   $('code').innerHTML=highlight(CODE);
 }
