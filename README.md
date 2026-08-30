@@ -2,7 +2,7 @@
 
 <img src="assets/logo.png" width="130" alt="TESR — Thai Embedded System and Robotics" />
 
-# TESR Vision Lab
+# TESR Image Processing Lab
 
 **Tune OpenCV in the browser, then take the Python code straight to your edge device**
 
@@ -100,6 +100,24 @@ image_processing_lab/
 └── README.md
 ```
 
+### Camera on Raspberry Pi (live mode)
+
+If "Go live" cannot find a camera on the Pi while it works on a PC, check these in order:
+
+1. **Secure context** - browsers only allow cameras over **https or localhost**. Opening `http://<another-machine>:8000` over the LAN silently blocks the camera. Either use the GitHub Pages https URL, or run the server on the Pi itself and open `http://localhost:8000`.
+2. **USB webcam** - works out of the box. Verify the device exists: `ls /dev/video*` and `v4l2-ctl --list-devices` (package `v4l-utils`).
+3. **CSI camera module (ribbon cable)** - Chromium talks V4L2 and cannot see the libcamera stack directly. Start the browser through the libcamera shim:
+   ```bash
+   sudo apt install libcamera-tools
+   libcamerify chromium-browser
+   ```
+   First check the module itself works: `rpicam-hello -t 3000`.
+4. **Camera busy** - close anything else using it (`rpicam-hello`, VLC, another tab).
+5. **Permission denied earlier** - click the camera/lock icon in the address bar, allow, retry.
+6. If several `/dev/video*` nodes exist, the page now shows a **"Choose camera"** dropdown after the first permission grant - try each entry; on the Pi the first node is not always the capture node.
+
+The page also tries multiple fallback strategies automatically (relaxed constraints, then every detected device) and prints the exact reason in the top message bar when it still fails.
+
 ### Things to tell learners every time
 
 - **The time shown on the page is OpenCV.js on the viewer's machine — it is not a Raspberry Pi or Jetson benchmark.** Always measure again on the real hardware.
@@ -191,6 +209,24 @@ Deploy ขึ้น GitHub Pages: **Settings → Pages → Source: GitHub Action
 ### โครงสร้างที่ถูกต้อง
 
 > **สำคัญ:** `index.html`, `assets/`, `samples/` และ `README.md` ต้องอยู่ระดับเดียวกันที่ root ของ repo ถ้าแยกกัน โลโก้ใน README และภาพตัวอย่างจะหาย (อาการโลโก้แตกบนหน้า repo คือเรื่องนี้)
+
+### การใช้กล้องบน Raspberry Pi (โหมด Live)
+
+ถ้ากด "เปิดกล้อง Live" บน Pi แล้วหากล้องไม่เจอ (ทั้งที่บนคอมทำงานปกติ) ให้ไล่ตามนี้:
+
+1. **เปิดผ่าน https หรือ localhost เท่านั้น** — เบราว์เซอร์บล็อกกล้องเงียบ ๆ ถ้าเปิดผ่าน `http://<เครื่องอื่น>:8000` ข้าม LAN ให้ใช้ URL https ของ GitHub Pages หรือรันเซิร์ฟเวอร์บนตัว Pi เองแล้วเปิด `http://localhost:8000`
+2. **กล้อง USB** ใช้ได้ทันที เช็คว่าเครื่องเห็นด้วย `ls /dev/video*` และ `v4l2-ctl --list-devices`
+3. **กล้อง CSI (สายแพ)** — Chromium คุยผ่าน V4L2 มองไม่เห็น libcamera โดยตรง ต้องเปิดเบราว์เซอร์ผ่านตัวกลาง:
+   ```bash
+   sudo apt install libcamera-tools
+   libcamerify chromium-browser
+   ```
+   ทดสอบตัวกล้องก่อนด้วย `rpicam-hello -t 3000`
+4. **กล้องถูกใช้งานอยู่** — ปิด rpicam-hello, VLC หรือแท็บอื่นที่ใช้กล้องค้างไว้
+5. **เคยกดปฏิเสธสิทธิ์** — กดไอคอนกล้อง/กุญแจในแถบ address อนุญาตใหม่
+6. ถ้ามี `/dev/video*` หลายตัว หน้าเว็บจะมี **dropdown "เลือกกล้อง"** โผล่หลังอนุญาตครั้งแรก ให้ลองไล่ทีละตัว — บน Pi ตัวแรกไม่ใช่ตัวจับภาพเสมอไป
+
+หน้าเว็บจะลองเปิดกล้องหลายวิธีให้อัตโนมัติอยู่แล้ว (ผ่อนเงื่อนไข → ไล่ทุก device) และถ้ายังไม่ได้จะบอกสาเหตุที่แท้จริงในแถบข้อความบนสุด
 
 ### ข้อจำกัดที่ต้องบอกผู้เรียนทุกครั้ง
 

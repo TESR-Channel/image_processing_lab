@@ -389,7 +389,12 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
           <button class="btn" id="camPause" style="flex:1" disabled data-i18n="src.pause">พักภาพ</button>
           <button class="btn" id="camShot" style="flex:1" disabled data-i18n="src.shot">จับภาพนิ่ง</button>
         </div>
-        <div class="hint" style="margin-top:6px" data-i18n="src.liveHint">โหมด Live ประมวลผลทุกเฟรมตามแท็บที่เลือกอยู่ กด "พักภาพ" เพื่อหยุดภาพชั่วคราวแล้วคลิกดูดสีได้สบาย ๆ</div>
+        <div class="field hidden" id="camSelWrap" style="margin:8px 0 0">
+          <label class="lbl" data-i18n="src.camSel">เลือกกล้อง</label>
+          <select id="camSel"></select>
+        </div>
+        <button class="btn hidden" id="camProc" style="width:100%;margin-top:8px"></button>
+        <div class="hint" style="margin-top:6px" data-i18n="src.liveHint">เปิดกล้องแล้วจะเห็นภาพสดก่อนโดยยังไม่ประมวลผล — ปรับค่าให้พร้อม แล้วค่อยกด ▶ เริ่มประมวลผล (กด "พักภาพ" เพื่อหยุดภาพไว้คลิกดูดสี)</div>
         <video id="video" class="hidden" playsinline muted></video>
         <div class="field" style="margin-top:13px">
           <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="src.scale">ย่อ/ขยายภาพก่อนประมวลผล</label><b id="scaleV">100%</b></div>
@@ -419,13 +424,13 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
           </div>
         </div>
         <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="c.md">ระยะห่างขั้นต่ำระหว่างวง — minDist</label><b id="c_mdV">50</b></div>
-          <input type="range" id="c_md" min="5" max="600" step="1" value="50" />
+          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="c.md">ระยะห่างขั้นต่ำระหว่างวง — minDist</label><b id="c_mdV">60</b></div>
+          <input type="range" id="c_md" min="5" max="600" step="1" value="60" />
           <div class="hint" data-i18n="c.mdHint">ระยะห่างต่ำสุดระหว่างจุดศูนย์กลาง ถ้าน้อยเกินจะได้วงซ้อนกันเป็นกอง</div>
         </div>
         <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="c.p2">ความเข้มงวดในการยืนยันวง — param2</label><b id="c_p2V">30</b></div>
-          <input type="range" id="c_p2" min="5" max="200" step="1" value="30" />
+          <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="c.p2">ความเข้มงวดในการยืนยันวง — param2</label><b id="c_p2V">45</b></div>
+          <input type="range" id="c_p2" min="5" max="200" step="1" value="45" />
           <div class="hint" data-i18n="c.p2Hint">ยิ่งต่ำยิ่งเจอวงกลมเยอะ (รวมของปลอม) ยิ่งสูงยิ่งเข้มงวด</div>
         </div>
         <details class="adv"><summary data-i18n="adv">ตัวเลือกขั้นสูง</summary>
@@ -439,13 +444,13 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
           <input type="range" id="c_p1" min="20" max="300" step="5" value="100" />
         </div>
         <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0">minRadius</label><b id="c_r1V">0</b></div>
-          <input type="range" id="c_r1" min="0" max="400" step="1" value="0" />
+          <div class="slider-head"><label class="lbl" style="margin:0">minRadius</label><b id="c_r1V">10</b></div>
+          <input type="range" id="c_r1" min="0" max="400" step="1" value="10" />
         </div>
         <div class="field">
-          <div class="slider-head"><label class="lbl" style="margin:0">maxRadius</label><b id="c_r2V">0</b></div>
-          <input type="range" id="c_r2" min="0" max="600" step="1" value="0" />
-          <div class="hint" data-i18n="c.rHint">0 = ไม่จำกัด · กำหนดช่วงรัศมีให้ตรงงานจริงช่วยลดผลลวงได้มาก</div>
+          <div class="slider-head"><label class="lbl" style="margin:0">maxRadius</label><b id="c_r2V">120</b></div>
+          <input type="range" id="c_r2" min="0" max="600" step="1" value="120" />
+          <div class="hint" data-i18n="c.rHint">0 = ไม่จำกัด (ระวัง: ช้ามากบนภาพใหญ่) · กำหนดช่วงรัศมีให้ตรงงานจริง ทั้งเร็วขึ้นและผลลวงหายเกือบหมด</div>
         </div>
         </details>
         <label class="check"><input type="checkbox" id="c_center" checked /><span data-i18n="c.center">วาดจุดศูนย์กลาง</span></label>
@@ -939,8 +944,8 @@ const I18N = {
   en:{
     'tagline':'Tune OpenCV in the browser, then take the Python code straight to your edge device',
     'src.title':'Source image','src.drop':'Drop an image here, or click to choose a file',
-    'src.cam':'Open camera','src.shot':'Freeze frame','src.live':'🔴 Go live','src.pause':'Pause',
-    'src.liveHint':'Live mode runs every frame through the active tab. Press Pause to freeze the image and click-pick colours comfortably.','src.scale':'Resize before processing',
+    'src.cam':'Open camera','src.shot':'Freeze frame','src.camSel':'Choose camera','src.live':'🔴 Go live','src.pause':'Pause',
+    'src.liveHint':'Going live shows the raw feed first, with processing OFF - tune your values, then press Start processing. Use Pause to freeze a frame for colour picking.','src.scale':'Resize before processing',
     'src.scaleHint':'Smaller images run faster on edge devices, but small objects may disappear',
     'proc.title':'Processing','proc.reset':'Reset this tab','adv':'Advanced options',
     'step.1':'Pick a sample, drop your own image, or go live with the camera',
@@ -958,7 +963,7 @@ const I18N = {
     'c.dpHint':'Accumulator resolution ratio — higher is looser',
     'c.mdHint':'Minimum distance between centres. Too small and you get piles of overlapping circles',
     'c.p2Hint':'Lower finds more circles (including false ones), higher is stricter',
-    'c.rHint':'0 = no limit. Matching the radius range to the real job removes most false hits',
+    'c.rHint':'0 = no limit (warning: very slow on large images). Matching the radius range to the real job is both faster and far cleaner',
     'c.center':'Draw centre point','c.label':'Show index + radius',
     'col.eyedrop':'💡 Click anywhere on the result image to sample that colour — H, S and V are set automatically. When live, press Pause first, then click.',
     'col.pick':'Pick a colour from the image (click the result canvas)','col.preset':'Presets',
@@ -1133,7 +1138,7 @@ dz.addEventListener('drop',e=>{const f=e.dataTransfer.files[0]; if(f&&f.type.sta
 dz.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')$('file').click();});
 
 /* webcam capture */
-let stream=null, LIVE=false, PAUSED=false, liveT=0;
+let stream=null, LIVE=false, PAUSED=false, liveT=0, liveWarnedMany=false, liveAutoScaled=false, liveProc=false;
 const liveCanvas=document.createElement('canvas');
 
 function setLiveUI(){
@@ -1145,16 +1150,105 @@ function setLiveUI(){
   $('camPause').textContent = PAUSED ? (LANG==='en'?'▶ Resume':'▶ เล่นต่อ')
                                      : (LANG==='en'?'Pause':'พักภาพ');
   $('st_fpsBox').classList.toggle('hidden',!LIVE);
+  const cp=$('camProc');
+  cp.classList.toggle('hidden',!LIVE);
+  cp.textContent = liveProc ? (LANG==='en'?'⏸ Stop processing (preview only)':'⏸ หยุดประมวลผล (ดูภาพสดอย่างเดียว)')
+                            : (LANG==='en'?'▶ Start processing with these values':'▶ เริ่มประมวลผลด้วยค่าที่ตั้งไว้');
+  cp.classList.toggle('primary',!liveProc&&LIVE);
+  cp.classList.toggle('gold',liveProc);
 }
-async function startLive(){
+let camId=null;
+
+async function listCams(){
   try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{width:1280,height:720}});
+    if(!navigator.mediaDevices||!navigator.mediaDevices.enumerateDevices) return [];
+    const cams=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+    const sel=$('camSel');
+    sel.innerHTML=cams.map((c,i)=>'<option value="'+c.deviceId+'">'+
+      ((c.label||'').trim()||((LANG==='en'?'Camera ':'กล้องตัวที่ ')+(i+1)))+'</option>').join('');
+    if(camId) sel.value=camId;
+    $('camSelWrap').classList.toggle('hidden', cams.length<2);
+    return cams;
+  }catch(err){ return []; }
+}
+
+async function tryStream(){
+  const base={width:{ideal:640},height:{ideal:480}};
+  const attempts=[];
+  if(camId) attempts.push({video:Object.assign({deviceId:{exact:camId}},base)});
+  attempts.push({video:base});
+  attempts.push({video:true});            // some drivers reject any constraint - plain request
+  let lastErr=null;
+  for(const c of attempts){
+    try{ return await navigator.mediaDevices.getUserMedia(c); }
+    catch(err){ lastErr=err; }
+  }
+  // last resort: walk every enumerated camera (Pi exposes several /dev/video nodes,
+  // and the browser default is sometimes a non-capture node)
+  for(const cam of await listCams()){
+    try{ return await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:cam.deviceId}}}); }
+    catch(err){ lastErr=err; }
+  }
+  throw lastErr||new Error('NoCamera');
+}
+
+function camFailMsg(err){
+  const name=err&&err.name?err.name:'';
+  if(!window.isSecureContext)
+    return LANG==='en'
+      ? 'The browser blocks cameras on plain http (except localhost). Open the site over https (GitHub Pages), or run the server on this machine and open http://localhost:8000'
+      : 'เบราว์เซอร์บล็อกกล้องเมื่อเปิดผ่าน http ที่ไม่ใช่ localhost — ให้เปิดผ่าน https (เช่น GitHub Pages) หรือรันเซิร์ฟเวอร์บนเครื่องนี้เองแล้วเปิด http://localhost:8000';
+  if(name==='NotAllowedError'||name==='PermissionDeniedError')
+    return LANG==='en'
+      ? 'Camera permission was denied. Click the camera icon in the address bar, allow it, then try again.'
+      : 'สิทธิ์กล้องถูกปฏิเสธ — กดไอคอนกล้อง/กุญแจในแถบ address อนุญาตกล้อง แล้วกดเปิดใหม่';
+  if(name==='NotFoundError'||name==='DevicesNotFoundError'||name==='OverconstrainedError')
+    return LANG==='en'
+      ? 'No usable camera found. On Raspberry Pi: USB webcams work out of the box; the CSI camera module needs Chromium started through libcamerify (see README - Camera on Raspberry Pi). Check with: ls /dev/video*'
+      : 'ไม่พบกล้องที่ใช้ได้ — บน Raspberry Pi: กล้อง USB ใช้ได้ทันที ส่วนกล้อง CSI (สายแพ) ต้องเปิด Chromium ผ่าน libcamerify (ดู README หัวข้อ Camera on Raspberry Pi) · เช็คด้วยคำสั่ง ls /dev/video*';
+  if(name==='NotReadableError'||name==='TrackStartError')
+    return LANG==='en'
+      ? 'The camera is busy in another program (rpicam-hello, VLC, another tab, ...). Close it and try again.'
+      : 'กล้องถูกโปรแกรมอื่นใช้งานอยู่ (เช่น rpicam-hello, VLC หรือแท็บอื่น) ปิดโปรแกรมนั้นก่อนแล้วลองใหม่';
+  return (LANG==='en'?'Could not open the camera: ':'เปิดกล้องไม่ได้: ')+(name||err);
+}
+
+async function startLive(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    const m=camFailMsg({name:''});
+    $('cvDot').className='dot err'; $('cvMsg').textContent=m; toast(m.slice(0,80));
+    return;
+  }
+  try{
+    stream=await tryStream();
     const v=$('video'); v.srcObject=stream; await v.play();
     LIVE=true; PAUSED=false; liveT=performance.now();
+    liveWarnedMany=false; liveAutoScaled=false; liveProc=false;
     setLiveUI(); liveTick();
-    toast(LANG==='en'?'Live — every frame runs through the active tab':'Live แล้ว ทุกเฟรมวิ่งผ่านแท็บที่เลือกอยู่');
-  }catch(err){ toast(LANG==='en'?'Camera unavailable: '+err.name:'เปิดกล้องไม่ได้: '+err.name); }
+    listCams();   // labels become available after permission is granted
+    toast(LANG==='en'?'Live preview - tune your values, then press Start processing':'ภาพสดมาแล้ว ปรับค่าให้พร้อม แล้วกด ▶ เริ่มประมวลผล');
+  }catch(err){
+    const m=camFailMsg(err);
+    $('cvDot').className='dot err'; $('cvMsg').textContent=m;
+    toast(LANG==='en'?'Camera failed - see the message bar on top':'เปิดกล้องไม่สำเร็จ ดูคำแนะนำที่แถบข้อความด้านบน');
+    listCams();
+  }
 }
+
+$('camSel').addEventListener('change', async ()=>{
+  camId=$('camSel').value;
+  if(!LIVE) return;
+  try{
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    stream=await navigator.mediaDevices.getUserMedia(
+      {video:{deviceId:{exact:camId},width:{ideal:640},height:{ideal:480}}});
+    const v=$('video'); v.srcObject=stream; await v.play();
+    toast(LANG==='en'?'Switched camera':'สลับกล้องแล้ว');
+  }catch(err){
+    toast(camFailMsg(err).slice(0,90));
+  }
+});
+
 function stopLive(keepFrame){
   LIVE=false;
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
@@ -1179,6 +1273,12 @@ function liveTick(){
 $('camLive').onclick=()=>{ LIVE?stopLive(false):startLive(); };
 $('camPause').onclick=()=>{ PAUSED=!PAUSED; setLiveUI();
   if(PAUSED) toast(LANG==='en'?'Frozen — click the result to pick a colour':'หยุดภาพแล้ว คลิกบนภาพเพื่อดูดสีได้เลย'); };
+$('camProc').onclick=()=>{
+  liveProc=!liveProc;
+  liveWarnedMany=false; liveAutoScaled=false;   // fresh guards per processing session
+  setLiveUI(); render();
+  if(liveProc) toast(LANG==='en'?'Processing every frame with the current values':'ประมวลผลทุกเฟรมด้วยค่าปัจจุบันแล้ว');
+};
 $('camShot').onclick=()=>{ stopLive(true); toast(LANG==='en'?'Captured as a still image':'จับเป็นภาพนิ่งแล้ว'); };
 
 /* ---------------- tabs & view ---------------- */
@@ -1369,6 +1469,22 @@ function doRender(){
   cv.imshow('canvasOriginal',srcMat);
 
   let out=null, count=0, rows=[];
+  if(LIVE && !liveProc){
+    // raw preview: no detection until the user explicitly starts it
+    out=srcMat.clone();
+    const wbar=out.cols;
+    cv.rectangle(out,new cv.Point(0,0),new cv.Point(wbar,44),new cv.Scalar(20,20,24,215),-1);
+    cv.putText(out, LANG==='en'?'PREVIEW - press "Start processing" when ready':'ภาพสด - พร้อมแล้วกด "เริ่มประมวลผล"',
+               new cv.Point(12,29), cv.FONT_HERSHEY_SIMPLEX, 0.62, new cv.Scalar(...GOLD), 2, cv.LINE_AA);
+    cv.imshow('canvasResult',out); out.delete();
+    $('st_size').textContent=w+'×'+h;
+    $('st_count').textContent='—';
+    $('st_time').textContent='—';
+    fillTable(null);
+    buildCode(P);
+    drawMini(); syncMini();
+    return;
+  }
   if(TAB==='circle'){ [out,count,rows]=runCircle(srcMat,P.circle); }
   else if(TAB==='color'){ [out,count,rows]=runColor(srcMat,P.color); }
   else if(TAB==='pre'){ [out,count,rows]=runPre(srcMat,P.pre); }
@@ -1387,9 +1503,24 @@ function doRender(){
 
   cv.imshow('canvasResult',out); out.delete();
 
+  const elapsed=performance.now()-t0;
   $('st_size').textContent=w+'×'+h;
   $('st_count').textContent=count;
-  $('st_time').textContent=(performance.now()-t0).toFixed(1)+' ms';
+  $('st_time').textContent=elapsed.toFixed(1)+' ms';
+  if(LIVE&&liveProc){
+    if(elapsed>1500 && +$('scale').value>40 && !liveAutoScaled){
+      liveAutoScaled=true;
+      $('scale').value=Math.max(40,+$('scale').value-30);
+      syncLabels();
+      toast(LANG==='en'?'Heavy frame — auto-reduced the processing scale to keep it live'
+                       :'เฟรมหนักเกิน — ลดขนาดประมวลผลให้อัตโนมัติเพื่อให้ยังลื่นอยู่');
+    }
+    if(count>120 && !liveWarnedMany){
+      liveWarnedMany=true;
+      toast(LANG==='en'?'Lots of false hits — raise param2 / strictness, or set a radius or area limit'
+                       :'ผลลวงเยอะมาก — ลองเพิ่ม param2/ความเข้มงวด หรือกำหนดช่วงรัศมี/พื้นที่');
+    }
+  }
   fillTable(rows);
   buildCode(P);
   drawMini(); syncMini();
@@ -1410,7 +1541,8 @@ function runCircle(src,C){
     if(C.blurType==='gaussian') cv.GaussianBlur(gray,gray,new cv.Size(C.blurK,C.blurK),0,0,cv.BORDER_DEFAULT);
     cv.HoughCircles(gray,circles,cv.HOUGH_GRADIENT,C.dp,C.minDist,C.p1,C.p2,C.minR,C.maxR);
     const th=Math.max(2,Math.round(src.cols/400));
-    for(let i=0;i<circles.cols;i++){
+    const total=circles.cols, MAXDRAW=80;
+    for(let i=0;i<Math.min(total,MAXDRAW);i++){
       const x=circles.data32F[i*3], y=circles.data32F[i*3+1], r=circles.data32F[i*3+2];
       cv.circle(dst,new cv.Point(x,y),r,new cv.Scalar(...GOLD),th,cv.LINE_AA);
       if(C.center) cv.circle(dst,new cv.Point(x,y),Math.max(2,th),new cv.Scalar(...CRIM),-1,cv.LINE_AA);
@@ -1418,7 +1550,8 @@ function runCircle(src,C){
       rows.push([i+1,Math.round(x),Math.round(y),Math.round(r)]);
       n++;
     }
-    drawBadge(dst,'Circles: '+n);
+    drawBadge(dst, total>MAXDRAW ? 'Circles: '+total+' (drew '+MAXDRAW+')' : 'Circles: '+n);
+    n=total;
   } finally { gray.delete(); circles.delete(); }
   return [dst,n,{head:['#','x','y','radius'],rows:rows}];
 }
