@@ -860,6 +860,8 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
             <div class="hint" style="margin-top:3px" data-i18n="ex.hint">โค้ดด้านขวาใช้ค่าที่ปรับไว้ล่าสุด แก้ค่าเพิ่มได้ที่หน้าปรับแต่ง</div>
           </div>
         </div>
+        <div class="lbl" style="margin-bottom:6px" data-i18n="ex.params">ค่าที่อยู่ในโค้ดตอนนี้ (ตาม workspace แบบเรียลไทม์)</div>
+        <div id="exportParams" class="mono" style="font-size:11.5px;line-height:1.9;color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:12px"></div>
         <button class="btn" id="backToWork" style="width:100%">← <span data-i18n="ex.back">กลับไปหน้าปรับแต่ง</span></button>
       </div>
     </div>
@@ -874,6 +876,14 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
             <option value="jetson">NVIDIA Jetson (CSI / GStreamer)</option>
             <option value="kinect">Kinect v1 + libfreenect</option>
           </select>
+        </div>
+        <div class="field hidden" id="g_picamWrap">
+          <label class="lbl" data-i18n="gen.picam">ชนิดกล้องบน Raspberry Pi</label>
+          <select id="g_picamType">
+            <option value="usb" selected data-i18n="gen.picamUsb">USB webcam (cv2.VideoCapture)</option>
+            <option value="csi" data-i18n="gen.picamCsi">กล้อง CSI สายแพ (Picamera2)</option>
+          </select>
+          <div class="hint" data-i18n="gen.picamHint">กล้องที่ใช้จูนในเบราว์เซอร์ได้คือ USB — ถ้าจะ deploy กับกล้องสายแพให้เลือก CSI</div>
         </div>
         <div class="field">
           <label class="lbl" data-i18n="gen.input">แหล่งภาพในโค้ด</label>
@@ -895,6 +905,7 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
         <strong class="k" style="font-size:13.5px;color:var(--gold)" data-i18n="code.title">โค้ด Python ที่สร้างให้</strong>
         <span class="mono" style="font-size:11.5px;color:var(--ink-dim)" id="fileName">detect.py</span>
         <span style="font-size:11px;color:var(--ink-dim)" data-i18n="code.liveNote">อัปเดตตามค่าที่ปรับแบบเรียลไทม์</span>
+        <span class="mono" style="font-size:10.5px;color:var(--gold-dim)" id="codeStamp"></span>
         <div style="margin-left:auto" class="row wrap2">
           <button class="btn" id="copyCode" data-i18n="code.copy">คัดลอก</button>
           <button class="btn primary" id="dlCode" data-i18n="code.dl">ดาวน์โหลด .py</button>
@@ -955,6 +966,7 @@ const I18N = {
     'view.code':'Get Python code','vw.work':'Workspace','vw.export':'Get Python code',
     'dw.title':'Some files are missing from this server','dw.body':'The samples/ or assets/ folder was not fully uploaded to the repo. The page still works, but sample images and face detection will be missing. Upload every folder per the README layout, then refresh.',
     'ex.summary':'Current task','ex.back':'Back to workspace',
+    'ex.params':'Values in the code right now (live from the workspace)',
     'ex.hint':'The code on the right uses your latest settings. To change them, go back to the workspace.','jump.stage':'Result','jump.proc':'Controls','jump.code':'Code','jump.src':'Image',
     'c.md':'Minimum gap between circles — minDist','c.p2':'Detection strictness — param2',
     'l.thr':'Line confirmation votes — threshold',
@@ -975,7 +987,9 @@ const I18N = {
     'col.areaHint':'Filters out small noise blobs before counting',
     'col.morph':'Morphology Open before finding contours',
     'p.blur':'Blur','p.th':'Threshold','p.morph':'Morphology','p.cont':'Find contours + count',
-    'gen.title':'Code options','gen.device':'Target device','gen.input':'Image source in the code',
+    'gen.title':'Code options','gen.device':'Target device','gen.input':'Image source in the code','gen.picam':'Camera type on the Raspberry Pi',
+    'gen.picamUsb':'USB webcam (cv2.VideoCapture)','gen.picamCsi':'CSI ribbon camera (Picamera2)',
+    'gen.picamHint':'The browser can only tune with USB cameras - pick CSI if you will deploy with the ribbon camera.',
     'gen.in1':'Image file','gen.in2':'Live camera','gen.in3':'Video file',
     'gen.fps':'Draw FPS on the frame','gen.save':'Save result images to a folder',
     'gen.mqtt':'Publish results over MQTT (Node-RED / dashboard)',
@@ -1108,6 +1122,7 @@ function markSample(n){
 }
 function loadUrl(url,name){
   if(LIVE) stopLive(false);
+  if($('g_input').value==='camera') $('g_input').value='image';
   const t=new Image();
   t.crossOrigin='anonymous';
   t.onload=()=>{
@@ -1127,6 +1142,7 @@ $('drop').onclick=()=>$('file').click();
 $('file').onchange=e=>{ const f=e.target.files[0]; if(f) readFile(f); };
 function readFile(f){
   if(LIVE) stopLive(false);
+  if($('g_input').value==='camera') $('g_input').value='image';
   const r=new FileReader();
   r.onload=ev=>{ imgEl.src=ev.target.result; currentName=f.name; markSample(''); };
   r.readAsDataURL(f);
@@ -1224,6 +1240,11 @@ async function startLive(){
     const v=$('video'); v.srcObject=stream; await v.play();
     LIVE=true; PAUSED=false; liveT=performance.now();
     liveWarnedMany=false; liveAutoScaled=false; liveProc=false;
+    if($('g_input').value!=='camera'){
+      $('g_input').value='camera';
+      toast(LANG==='en'?'Code switched to the live-camera version':'สลับโค้ดเป็นเวอร์ชันกล้องสดให้แล้ว');
+    }
+    currentName='live camera';
     setLiveUI(); liveTick();
     listCams();   // labels become available after permission is granted
     toast(LANG==='en'?'Live preview - tune your values, then press Start processing':'ภาพสดมาแล้ว ปรับค่าให้พร้อม แล้วกด ▶ เริ่มประมวลผล');
@@ -1370,6 +1391,7 @@ function syncLabels(){
   $('d_rV').textContent=$('d_r').value;
   $('d_fsV').textContent=(+$('d_fs').value).toFixed(1);
   $('d_thV').textContent=$('d_fill').checked?'-1':$('d_th').value;
+  $('g_picamWrap').classList.toggle('hidden', !($('g_device').value==='pi' && $('g_input').value==='camera'));
   const dt=$('d_type').value;
   const hasSel = (typeof selShape!=='undefined') && selShape!==null;
   $('d_noSel').classList.toggle('hidden', hasSel);
@@ -1431,7 +1453,7 @@ function params(){
       sf:Math.max(1.01,+$('h_sf').value),mn:+$('h_mn').value,ms:+$('h_ms').value,
       eq:$('h_eq').checked,label:$('h_label').checked},
     gen:{device:$('g_device').value,input:$('g_input').value,fps:$('g_fps').checked,
-      save:$('g_save').checked,mqtt:$('g_mqtt').checked}
+      save:$('g_save').checked,mqtt:$('g_mqtt').checked,picam:$('g_picamType').value}
   };
 }
 
@@ -2297,7 +2319,10 @@ function header(title,G,extra,opts){
   let pkgs=(opts.contrib?'opencv-contrib-python':'opencv-python')+' numpy';
   if(G.mqtt) pkgs+=' paho-mqtt';
   let note='';
-  if(G.device==='pi'&&G.input==='camera') note='   # '+L('picamera2 ติดตั้งมากับ Raspberry Pi OS อยู่แล้ว','picamera2 ships with Raspberry Pi OS');
+  if(G.device==='pi'&&G.input==='camera')
+    note='   # '+(G.picam==='csi'
+      ? L('picamera2 ติดตั้งมากับ Raspberry Pi OS อยู่แล้ว','picamera2 ships with Raspberry Pi OS')
+      : L('กล้อง USB ใช้ V4L2 ไม่ต้องใช้ picamera2','USB webcam via V4L2 - picamera2 not needed'));
   if(G.device==='kinect'&&G.input==='camera') note='   # '+L('freenect ลงผ่าน pip ไม่ได้ ต้อง build libfreenect เอง','freenect is not on pip, build libfreenect yourself');
   o.push('Install  : pip install '+pkgs+note);
   o.push('Run      : python '+fileNameFor()+(G.input==='image'?' --source path/to/image.jpg':''));
@@ -2321,7 +2346,7 @@ function header(title,G,extra,opts){
   o.push('import cv2');
   o.push('import numpy as np');
   if(G.mqtt) o.push('import paho.mqtt.client as mqtt');
-  if(G.device==='pi'&&G.input==='camera') o.push('from picamera2 import Picamera2');
+  if(G.device==='pi'&&G.input==='camera'&&G.picam==='csi') o.push('from picamera2 import Picamera2');
   if(G.device==='kinect'&&G.input==='camera') o.push('import freenect');
   o.push('');
   return o;
@@ -2382,7 +2407,7 @@ function captureBlock(G){
       '    return cv2.cvtColor(array, cv2.COLOR_RGB2BGR)','');
     return o;
   }
-  if(G.device==='pi'){
+  if(G.device==='pi'&&G.picam==='csi'){
     o.push('def open_camera(width=1280, height=720):',
       '    """'+L('เปิดกล้อง CSI ของ Raspberry Pi ผ่าน Picamera2','Open the Raspberry Pi CSI camera through Picamera2')+'"""',
       '    picam = Picamera2()',
@@ -2428,7 +2453,7 @@ function captureBlock(G){
 
 function srcStyle(G){
   if(G.input!=='camera') return G.input==='video'?'cap':'image';
-  if(G.device==='pi') return 'picam';
+  if(G.device==='pi') return G.picam==='csi' ? 'picam' : 'cap';
   if(G.device==='kinect') return 'kinect';
   return 'cap';
 }
@@ -2439,7 +2464,7 @@ function mainBlock(G,payloadFields){
   o.push('    parser = argparse.ArgumentParser(description="TESR Image Processing Lab generated script")');
   if(G.input==='image') o.push('    parser.add_argument("--source", required=True, help="'+L('พาธไฟล์ภาพ','path to the image file')+'")');
   else if(G.input==='video') o.push('    parser.add_argument("--source", required=True, help="'+L('พาธไฟล์วิดีโอ','path to the video file')+'")');
-  else if(G.device==='pc') o.push('    parser.add_argument("--camera", type=int, default=0, help="'+L('หมายเลขกล้อง','camera index')+'")');
+  else if(G.device==='pc'||(G.device==='pi'&&G.picam!=='csi')) o.push('    parser.add_argument("--camera", type=int, default=0, help="'+L('หมายเลขกล้อง','camera index')+'")');
   o.push('    parser.add_argument("--no-window", action="store_true", help="'+L('รันแบบไม่เปิดหน้าต่าง (สำหรับ headless)','run without a display window (headless)')+'")');
   o.push('    args = parser.parse_args()');
   o.push('');
@@ -2463,7 +2488,7 @@ function mainBlock(G,payloadFields){
     if(style==='picam') o.push('    picam = open_camera()');
     else if(style==='kinect') o.push('    # '+L('Kinect ไม่ต้องเปิด capture object เรียก get_video() ต่อเฟรมได้เลย','the Kinect needs no capture object, just call get_video() per frame'));
     else if(G.input==='video') o.push('    cap = open_source(args.source)');
-    else if(G.device==='pc') o.push('    cap = open_camera(args.camera)');
+    else if(G.device==='pc'||(G.device==='pi'&&G.picam!=='csi')) o.push('    cap = open_camera(args.camera)');
     else o.push('    cap = open_camera()');
     o.push('');
     o.push('    last_report = 0.0');
@@ -2984,7 +3009,7 @@ function codeFace(P){
   o.push('    parser.add_argument("--samples", type=int, default=30)');
   if(G.input==='image') o.push('    parser.add_argument("--source", help="'+L('ไฟล์ภาพสำหรับโหมด recognize','image file for recognize mode')+'")');
   if(G.input==='video') o.push('    parser.add_argument("--source", help="'+L('ไฟล์วิดีโอสำหรับโหมด recognize','video file for recognize mode')+'")');
-  if(G.device==='pc') o.push('    parser.add_argument("--camera", type=int, default=0)');
+  if(G.device==='pc'||(G.device==='pi'&&G.picam!=='csi')) o.push('    parser.add_argument("--camera", type=int, default=0)');
   o.push('    parser.add_argument("--no-window", action="store_true")');
   o.push('    args = parser.parse_args()');
   o.push('');
@@ -3020,7 +3045,7 @@ function codeFace(P){
     if(style==='picam') o.push('    picam = open_camera()');
     else if(style==='kinect') o.push('    # '+L('Kinect เรียก get_video() ต่อเฟรมได้เลย','the Kinect just needs get_video() per frame'));
     else if(G.input==='video') o.push('    cap = open_source(args.source)');
-    else if(G.device==='pc') o.push('    cap = open_camera(args.camera)');
+    else if(G.device==='pc'||(G.device==='pi'&&G.picam!=='csi')) o.push('    cap = open_camera(args.camera)');
     else o.push('    cap = open_camera()');
     o.push('    last_report = 0.0');
     if(G.fps) o.push('    prev = time.time()');
@@ -3356,10 +3381,62 @@ function asciiSafe(t){
           .replace(/\u00B7/g,'-').replace(/\u00D7/g,'x').replace(/\u00A0/g,' ')
           .replace(/\u2192/g,'->').replace(/\u00B0/g,' deg').replace(/\u2026/g,'...');
 }
+function paramSummary(P){
+  const en=LANG==='en';
+  const dev={pc:'PC',pi:'Pi 5'+(P.gen.picam==='csi'?' CSI':' USB'),jetson:'Jetson',kinect:'Kinect'}[P.gen.device];
+  const src={image:en?'image file':'ไฟล์ภาพ',camera:en?'camera':'กล้อง',video:en?'video file':'ไฟล์วิดีโอ'}[P.gen.input];
+  const rows=[[en?'Target':'ปลายทาง', dev+' / '+src],[en?'Scale':'ย่อภาพ', P.scale+'%']];
+  if(TAB==='circle'){
+    const C=P.circle;
+    rows.push(['Blur', C.blurType==='none'?(en?'off':'ปิด'):C.blurType+' '+C.blurK],
+              ['minDist · param2', C.minDist+' · '+C.p2],
+              ['dp · param1', C.dp+' · '+C.p1],
+              [en?'Radius':'รัศมี', C.minR+' – '+(C.maxR||(en?'no limit':'ไม่จำกัด'))]);
+  }else if(TAB==='color'){
+    const K=P.color;
+    if(K.mode==='thresh') rows.push(['BGR', K.bgr.join(', ')],['H/S/V ±', K.hThresh+' / '+K.sThresh+' / '+K.vThresh]);
+    else rows.push(['H', K.lo[0]+' – '+K.hi[0]],['S', K.lo[1]+' – '+K.hi[1]],['V', K.lo[2]+' – '+K.hi[2]]);
+    rows.push([en?'Min area':'พื้นที่ขั้นต่ำ', K.area+' px^2']);
+  }else if(TAB==='pre'){
+    const R=P.pre, on=[];
+    if(R.blurType!=='none') on.push(R.blurType+' '+R.blurK);
+    if(R.doThresh) on.push('threshold '+R.thresh);
+    if(R.doMorph) on.push('morph '+R.morphOp+' '+R.morphK);
+    if(R.doCanny) on.push('canny '+R.low+'/'+R.high);
+    if(R.doContour) on.push('contour ≥'+R.area);
+    rows.push(['Pipeline', on.length?on.join(' → '):(en?'pass-through':'ส่งผ่านตรง')]);
+  }else if(TAB==='line'){
+    const L2=P.line;
+    rows.push(['Canny', L2.low+' / '+L2.high],
+              [en?'Method':'วิธี', L2.method==='houghp'?'HoughLinesP':'HoughLines'],
+              ['threshold', L2.threshold]);
+    if(L2.method==='houghp') rows.push(['minLen · maxGap', L2.minLen+' · '+L2.maxGap]);
+    if(L2.angleOn) rows.push([en?'Angle filter':'กรองมุม', L2.angle+' ± '+L2.angleTol+' deg']);
+  }else if(TAB==='draw'){
+    rows.push([en?'Shapes':'รูปทรง', P.draw.shapes.length+(en?' items':' รายการ')]);
+  }else if(TAB==='haar'){
+    const H=P.haar;
+    rows.push(['Cascade', H.cascade.replace('haarcascade_','').replace('.xml','')],
+              ['scaleFactor · minNeighbors', H.sf.toFixed(2)+' · '+H.mn],
+              ['minSize', H.minSize+' px'+(H.roi?(en?' · inside face ROI':' · เฉพาะในใบหน้า'):'')]);
+  }else if(TAB==='face'){
+    const F=P.face;
+    rows.push([en?'Crop size':'ขนาดครอป', F.size+' x '+F.size],
+              [en?'Max distance':'ระยะสูงสุด', F.thr],
+              ['scaleFactor · minNeighbors', F.sf.toFixed(2)+' · '+F.mn]);
+  }
+  return rows;
+}
 function buildCode(P){
   CODE = asciiSafe({circle:codeCircle,color:codeColor,pre:codePre,line:codeLine,draw:codeDraw,
           haar:codeHaar,face:codeFace}[TAB](P));
   $('fileName').textContent=fileNameFor();
+  const st=new Date();
+  $('codeStamp').textContent=(LANG==='en'?'generated ':'สร้างเมื่อ ')+st.toLocaleTimeString();
+  if(VIEW==='export'){
+    $('exportParams').innerHTML=paramSummary(P)
+      .map(r=>'<span style="color:var(--ink-dim)">'+r[0]+'</span>&nbsp; '+r[1]).join('<br>');
+  }
   $('code').innerHTML=highlight(CODE);
 }
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
