@@ -872,7 +872,7 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
           <label class="lbl" data-i18n="gen.device">อุปกรณ์ปลายทาง</label>
           <select id="g_device">
             <option value="pc">PC / Notebook (Windows, Linux, macOS)</option>
-            <option value="pi">Raspberry Pi 5 (Picamera2)</option>
+            <option value="pi">Raspberry Pi 5 (USB / CSI camera)</option>
             <option value="jetson">NVIDIA Jetson (CSI / GStreamer)</option>
             <option value="kinect">Kinect v1 + libfreenect</option>
           </select>
@@ -2457,8 +2457,9 @@ function srcStyle(G){
   if(G.device==='kinect') return 'kinect';
   return 'cap';
 }
-function mainBlock(G,payloadFields){
+function mainBlock(G,opts){
   const o=[];
+  const TUNE=opts&&opts.tune;
   const style=srcStyle(G);
   o.push('def main():');
   o.push('    parser = argparse.ArgumentParser(description="TESR Image Processing Lab generated script")');
@@ -2466,8 +2467,18 @@ function mainBlock(G,payloadFields){
   else if(G.input==='video') o.push('    parser.add_argument("--source", required=True, help="'+L('พาธไฟล์วิดีโอ','path to the video file')+'")');
   else if(G.device==='pc'||(G.device==='pi'&&G.picam!=='csi')) o.push('    parser.add_argument("--camera", type=int, default=0, help="'+L('หมายเลขกล้อง','camera index')+'")');
   o.push('    parser.add_argument("--no-window", action="store_true", help="'+L('รันแบบไม่เปิดหน้าต่าง (สำหรับ headless)','run without a display window (headless)')+'")');
+  if(TUNE) o.push('    parser.add_argument("--tune", action="store_true", help="'+L('เปิด slider เพื่อจูนค่าซ้ำบนเครื่องนี้','show sliders to re-tune on this machine')+'")');
   o.push('    args = parser.parse_args()');
   o.push('');
+  if(TUNE){
+    o.push('    if args.tune:');
+    o.push('        if args.no_window:');
+    o.push('            print("[ERROR] --tune '+L('ต้องมีหน้าต่างแสดงผล','needs a display window')+'")');
+    o.push('            sys.exit(1)');
+    o.push('        globals()["TUNING"] = True');
+    o.push('        setup_tuner()');
+    o.push('');
+  }
   if(G.save){
     o.push('    os.makedirs(OUTPUT_DIR, exist_ok=True)');
     o.push('');
@@ -2476,6 +2487,20 @@ function mainBlock(G,payloadFields){
 
   if(G.input==='image'){
     o.push('    frame = load_image(args.source)');
+    if(TUNE){
+      o.push('    if args.tune:');
+      o.push('        # '+L('จูนกับภาพนิ่ง: ประมวลผลซ้ำจนกด q','tune on a still image: keeps re-processing until q'));
+      o.push('        while True:');
+      o.push('            result, info = process(frame)');
+      o.push('            cv2.imshow(WINDOW_NAME, result)');
+      o.push('            if cv2.waitKey(30) & 0xFF in (ord("q"), 27):');
+      o.push('                break');
+      o.push('        print_tuned()');
+      o.push('        print("[RESULT]", info)');
+      o.push('        cv2.destroyAllWindows()');
+      o.push('        return');
+      o.push('');
+    }
     o.push('    result, info = process(frame)');
     o.push('    print("[RESULT]", info)');
     if(G.mqtt) o.push('    mqtt_publish(client, info)');
@@ -2532,6 +2557,7 @@ function mainBlock(G,payloadFields){
     o.push('    except KeyboardInterrupt:');
     o.push('        print("\\n[INFO] '+L('ผู้ใช้กด Ctrl+C','interrupted by user')+'")');
     o.push('    finally:');
+    if(TUNE){ o.push('        if args.tune:'); o.push('            print_tuned()'); }
     if(style==='picam') o.push('        picam.stop()');
     else if(style==='kinect') o.push('        pass  # '+L('Kinect ปิดตัวเองเมื่อโปรแกรมจบ','the Kinect closes itself when the program exits'));
     else o.push('        cap.release()');
@@ -2574,7 +2600,9 @@ function codeCircle(P){
   const G=P.gen, C=P.circle;
   const o=header('Circle Detection (Hough Circle Transform)',G,
     [L('HoughCircles คืนค่า (x, y, radius) ค่าที่สามคือ "รัศมี" ไม่ใช่เส้นผ่านศูนย์กลาง',
-       'HoughCircles returns (x, y, radius) — the third value is the RADIUS, not the diameter.')]);
+       'HoughCircles returns (x, y, radius) — the third value is the RADIUS, not the diameter.'),
+     L('รันด้วย --tune เพื่อเปิด slider จูนค่าซ้ำบนอุปกรณ์จริง แล้วคัดลอกค่า [TUNED] กลับมาใส่หัวไฟล์',
+       'Run with --tune to open sliders and re-tune on the target device, then copy the [TUNED] values back into the constants.')]);
   o.push('# ---------- '+L('พารามิเตอร์ที่จูนไว้','Tuned parameters')+' ----------');
   o.push('WINDOW_NAME = "TESR Circle Detection"');
   o.push('SCALE_PERCENT = '+P.scale);
@@ -2593,8 +2621,42 @@ function codeCircle(P){
   o.push(...saveBlock(G));
   o.push(...mqttBlock(G));
   o.push(...scaleBlock(P));
+  o.push('# ---------- '+L('โหมดจูนบนอุปกรณ์จริง','On-device tuning mode')+' ----------');
+  o.push('TUNING = False');
+  o.push('');
+  o.push('');
+  o.push('def setup_tuner():');
+  o.push('    """'+L('slider สำหรับจูนซ้ำหน้างาน เพราะค่าที่จูนจากที่อื่นมักไม่รอดเมื่อแสงหรือกล้องเปลี่ยน',
+                    'Sliders for re-tuning on site - values tuned elsewhere rarely survive new lighting or a new camera')+'"""');
+  o.push('    nothing = lambda v: None');
+  o.push('    cv2.namedWindow(WINDOW_NAME)');
+  o.push('    cv2.createTrackbar("param2", WINDOW_NAME, PARAM2, 150, nothing)');
+  o.push('    cv2.createTrackbar("minDist", WINDOW_NAME, MIN_DIST, 300, nothing)');
+  o.push('    cv2.createTrackbar("minR", WINDOW_NAME, MIN_RADIUS, 300, nothing)');
+  o.push('    cv2.createTrackbar("maxR", WINDOW_NAME, MAX_RADIUS, 500, nothing)');
+  o.push('    cv2.createTrackbar("blur 0-2", WINDOW_NAME,');
+  o.push('                       {"none": 0, "median": 1, "gaussian": 2}[BLUR_TYPE], 2, nothing)');
+  o.push('');
+  o.push('');
+  o.push('def read_tuner():');
+  o.push('    global PARAM2, MIN_DIST, MIN_RADIUS, MAX_RADIUS, BLUR_TYPE');
+  o.push('    PARAM2 = max(5, cv2.getTrackbarPos("param2", WINDOW_NAME))');
+  o.push('    MIN_DIST = max(5, cv2.getTrackbarPos("minDist", WINDOW_NAME))');
+  o.push('    MIN_RADIUS = cv2.getTrackbarPos("minR", WINDOW_NAME)');
+  o.push('    MAX_RADIUS = cv2.getTrackbarPos("maxR", WINDOW_NAME)');
+  o.push('    BLUR_TYPE = ("none", "median", "gaussian")[cv2.getTrackbarPos("blur 0-2", WINDOW_NAME)]');
+  o.push('');
+  o.push('');
+  o.push('def print_tuned():');
+  o.push('    print("[TUNED] '+L('คัดลอกค่าด้านล่างกลับไปแทนที่ค่าที่หัวไฟล์','copy the values below back into the constants at the top')+'")');
+  o.push('    print(f"[TUNED] BLUR_TYPE={BLUR_TYPE!r} MIN_DIST={MIN_DIST} PARAM2={PARAM2}")');
+  o.push('    print(f"[TUNED] MIN_RADIUS={MIN_RADIUS} MAX_RADIUS={MAX_RADIUS}")');
+  o.push('');
+  o.push('');
   o.push('def process(frame):');
   o.push('    """'+L('รับภาพ BGR คืนค่า (ภาพผลลัพธ์, ข้อมูลสรุป)','Take a BGR frame, return (annotated frame, summary dict)')+'"""');
+  o.push('    if TUNING:');
+  o.push('        read_tuner()');
   if(P.scale<100) o.push('    frame = resize_frame(frame)');
   o.push('    result = frame.copy()');
   o.push('    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)');
@@ -2627,7 +2689,7 @@ function codeCircle(P){
   o.push('');
   o.push('');
   o.push(...captureBlock(G));
-  o.push(...mainBlock(G));
+  o.push(...mainBlock(G,{tune:true}));
   return o.join('\n');
 }
 
