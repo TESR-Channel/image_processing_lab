@@ -710,8 +710,10 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
         <label class="check"><input type="checkbox" id="d_fill" /><span data-i18n="d.fill">ทึบ (thickness = -1)</span></label>
         <label class="check"><input type="checkbox" id="d_aa" checked /><span data-i18n="d.aa">ขอบเรียบ (cv2.LINE_AA)</span></label>
         <div class="row" style="margin-top:6px">
+          <button class="btn primary" id="d_addNew" style="flex:1.4">＋ <span data-i18n="d.addNew">เพิ่มรูปทรง</span></button>
           <button class="btn" id="d_clear" style="flex:1" data-i18n="d.clear">ล้างทั้งหมด</button>
         </div>
+        <div class="hint" style="margin-top:6px" data-i18n="d.addHint">เพิ่มรูปทรงตามชนิด/สีที่ตั้งไว้ลงกลางภาพ แล้วลากไปวางตำแหน่งที่ต้องการได้เลย</div>
         <button class="btn hidden" id="d_delSel" style="width:100%;margin-top:8px;border-color:var(--err);color:#e8909d">🗑 <span data-i18n="d.delSel">ลบรูปทรงที่เลือก (Delete)</span></button>
         <div id="d_list" style="margin-top:10px"></div>
       </div>
@@ -994,6 +996,7 @@ const I18N = {
     'l.angleHint':'0 = horizontal, 90 = vertical. Useful for floor markings or conveyor edges',
     'l.out':'Result image','l.out1':'Lines on the original','l.out2':'Canny edge map','l.out3':'Lines on the edge map',
     'd.type':'Shape','d.clickHint':'Press at the start point, drag, release at the end point - the shape is committed on release. Circle: press the centre and drag out the radius. Text: tap to stamp. Click an existing shape to select and drag-move it. Right-click for the menu, Delete to remove.',
+    'd.addNew':'Add shape','d.addHint':'Adds a shape of the chosen type and style at the centre - then drag it into place.',
     'd.delSel':'Delete selected shape (Delete)','d.noSel':'Nothing selected - drag on the canvas to draw, or click a drawn shape to fine-tune it with the sliders below.',
     'd.p1':'Point 1 (x, y) % - selected shape','ctx.del':'Delete','ctx.dup':'Duplicate',
     'd.p2':'Point 2 (x, y) %','d.r':'Radius (% of the shorter side)',
@@ -1769,6 +1772,19 @@ function renderShapeList(){
   });
   wrap.querySelectorAll('[data-sel]').forEach(r=>r.onclick=()=>{ setSel(+r.dataset.sel); render(); });
 }
+$('d_addNew').onclick=()=>{
+  const t=$('d_type').value, st=styleFromControls();
+  const k=(SHAPES.length%5)*0.03;   // cascade so repeated adds don't stack exactly
+  let sh;
+  if(t==='line')           sh=Object.assign({type:'line',      x1:.30+k,y1:.40+k,x2:.70+k,y2:.60+k,r:.25},st);
+  else if(t==='rectangle') sh=Object.assign({type:'rectangle', x1:.30+k,y1:.30+k,x2:.65+k,y2:.60+k,r:.25},st);
+  else if(t==='circle')    sh=Object.assign({type:'circle',    x1:.50+k,y1:.50+k,x2:.68+k,y2:.50+k,r:.18},st);
+  else                     sh=Object.assign({type:'text',      x1:.35+k,y1:.50+k,x2:.35+k,y2:.50+k,r:.25},st);
+  SHAPES.push(sh);
+  setSel(SHAPES.length-1);
+  render();
+  toast(LANG==='en'?'Added - drag it into place or fine-tune with the sliders':'เพิ่มแล้ว ลากไปวาง หรือจูนด้วยแถบเลื่อนได้เลย');
+};
 $('d_clear').onclick=()=>{SHAPES=[];setSel(null);render();};
 
 function runDraw(src,D){
