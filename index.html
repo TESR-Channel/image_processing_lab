@@ -3045,6 +3045,12 @@ function codeFace(P){
   o.push('# ---------- '+L('พารามิเตอร์','Parameters')+' ----------');
   o.push('WINDOW_NAME = "TESR Face Recognition"');
   o.push('SCALE_PERCENT = '+P.scale);
+  o.push('# ---------- '+L('ตำแหน่งไฟล์ cascade','Cascade location')+' ----------');
+  o.push('# '+L('ใส่โฟลเดอร์ที่มีไฟล์ .xml บนเครื่องนี้ เช่น','Set to the folder holding the .xml files on THIS machine, e.g.'));
+  o.push('#   "/usr/share/opencv4/haarcascades"   # apt: sudo apt install opencv-data');
+  o.push('#   "C:/opencv/cascades"                # Windows');
+  o.push('# '+L('เว้นว่าง "" = ค้นหาอัตโนมัติ: pip (cv2.data) -> ข้างสคริปต์ -> ตำแหน่ง apt','Leave "" to auto-search: pip (cv2.data) -> next to this script -> apt location'));
+  o.push('CASCADE_DIR = ""');
   o.push('DATASET_DIR = "dataset"        # dataset/<name>/0001.jpg ...');
   o.push('MODEL_FILE = "lbph_model.yml"');
   o.push('LABELS_FILE = "labels.json"');
@@ -3060,11 +3066,40 @@ function codeFace(P){
   o.push(...saveBlock(G));
   o.push(...mqttBlock(G));
   o.push(...scaleBlock(P));
-  o.push('FACE_CASCADE = cv2.CascadeClassifier(');
-  o.push('    os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml"))');
-  o.push('if FACE_CASCADE.empty():');
-  o.push('    print("[ERROR] '+L('โหลด cascade ใบหน้าไม่ได้','could not load the face cascade')+'")');
-  o.push('    sys.exit(1)');
+  o.push('def cascade_path(file_name):');
+  o.push('    '+Q+L('หาไฟล์ cascade: pip (cv2.data) -> ข้างสคริปต์ -> ตำแหน่งของ apt (python3-opencv)',
+                    'Locate a cascade: pip (cv2.data) -> next to this script -> apt package location')+Q);
+  o.push('    candidates = []');
+  o.push('    if CASCADE_DIR:');
+  o.push('        candidates.append(os.path.join(CASCADE_DIR, file_name))');
+  o.push('    data_dir = getattr(getattr(cv2, "data", None), "haarcascades", None)');
+  o.push('    if data_dir:');
+  o.push('        candidates.append(os.path.join(data_dir, file_name))');
+  o.push('    candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), file_name))');
+  o.push('    candidates.append(os.path.join("/usr/share/opencv4/haarcascades", file_name))');
+  o.push('    for path in candidates:');
+  o.push('        if os.path.isfile(path):');
+  o.push('            return path');
+  o.push('    return None');
+  o.push('');
+  o.push('');
+  o.push('def load_cascade(file_name):');
+  o.push('    path = cascade_path(file_name)');
+  o.push('    if path is None:');
+  o.push('        print("[ERROR] '+L('หาไฟล์ cascade ไม่พบ','cascade file not found')+':", file_name)');
+  o.push('        print("  - pip: pip install opencv-python  ('+L('มี cascade มาให้','ships the cascades')+')")');
+  o.push('        print("  - apt: sudo apt install opencv-data")');
+  o.push('        print("  - '+L('หรือวางไฟล์ XML ไว้ข้างสคริปต์นี้','or place the XML next to this script')+'")');
+  o.push('        print("  - '+L('หรือใส่โฟลเดอร์ลงในค่า CASCADE_DIR ที่หัวไฟล์','or set the CASCADE_DIR constant at the top of this file')+'")');
+  o.push('        sys.exit(1)');
+  o.push('    classifier = cv2.CascadeClassifier(path)');
+  o.push('    if classifier.empty():');
+  o.push('        print("[ERROR] '+L('โหลด cascade ไม่ได้','could not load cascade')+':", path)');
+  o.push('        sys.exit(1)');
+  o.push('    return classifier');
+  o.push('');
+  o.push('');
+  o.push('FACE_CASCADE = load_cascade("haarcascade_frontalface_default.xml")');
   o.push('');
   o.push('');
   o.push('def detect_faces(gray):');
@@ -3561,8 +3596,8 @@ function codeHaar(P){
   const G=P.gen, H=P.haar;
   const name=H.cascade.indexOf('frontalface')>=0?'Face':(H.cascade.indexOf('smile')>=0?'Smile':'Eyes');
   const o=header('Haar Cascade Detection ('+name+')',G,
-    [L('ไฟล์ cascade ดึงจากโฟลเดอร์ที่มากับ opencv-python ผ่าน cv2.data.haarcascades จึงไม่ต้องแก้ path เวลาย้ายเครื่อง',
-       'The cascade file is taken from cv2.data.haarcascades, which ships with opencv-python, so no path edits when moving machines.'),
+    [L('ตัวโหลด cascade ไล่หาให้เอง: pip (cv2.data) -> ข้างสคริปต์ -> ตำแหน่ง apt จึงใช้ได้ทั้ง pip และ python3-opencv',
+       'The cascade loader searches pip (cv2.data), next to the script, then the apt location - works with both pip and python3-opencv.'),
      L('Haar เป็นวิธีเชิงกฎ ไวต่อแสงและมุมกล้อง งานที่ต้องแม่นจริงควรใช้โมเดล Deep Learning เช่น YOLO หรือ SSD',
        'Haar is rule-based and sensitive to lighting and pose. For accuracy-critical work, move to a deep learning model such as YOLO or SSD.'),
      L('ภาพใบหน้าเป็นข้อมูลส่วนบุคคลตาม PDPA ต้องแจ้งและขอความยินยอมก่อนเก็บหรือบันทึกภาพ',
@@ -3571,6 +3606,12 @@ function codeHaar(P){
   o.push('# ---------- '+L('พารามิเตอร์ที่จูนไว้','Tuned parameters')+' ----------');
   o.push('WINDOW_NAME = "TESR Haar Detection"');
   o.push('SCALE_PERCENT = '+P.scale);
+  o.push('# ---------- '+L('ตำแหน่งไฟล์ cascade','Cascade location')+' ----------');
+  o.push('# '+L('ใส่โฟลเดอร์ที่มีไฟล์ .xml บนเครื่องนี้ เช่น','Set to the folder holding the .xml files on THIS machine, e.g.'));
+  o.push('#   "/usr/share/opencv4/haarcascades"   # apt: sudo apt install opencv-data');
+  o.push('#   "C:/opencv/cascades"                # Windows');
+  o.push('# '+L('เว้นว่าง "" = ค้นหาอัตโนมัติ: pip (cv2.data) -> ข้างสคริปต์ -> ตำแหน่ง apt','Leave "" to auto-search: pip (cv2.data) -> next to this script -> apt location'));
+  o.push('CASCADE_DIR = ""');
   o.push('CASCADE_FILE = "'+H.cascade+'"');
   if(H.roi) o.push('FACE_CASCADE_FILE = "haarcascade_frontalface_default.xml"');
   o.push('SCALE_FACTOR = '+H.sf.toFixed(2)+'      # '+L('ยิ่งใกล้ 1 ยิ่งละเอียดและช้า','closer to 1 is finer and slower'));
@@ -3586,17 +3627,38 @@ function codeHaar(P){
   o.push(...saveBlock(G));
   o.push(...mqttBlock(G));
   o.push(...scaleBlock(P));
+  o.push('def cascade_path(file_name):');
+  o.push('    '+Q+L('หาไฟล์ cascade: pip (cv2.data) -> ข้างสคริปต์ -> ตำแหน่งของ apt (python3-opencv)',
+                    'Locate a cascade: pip (cv2.data) -> next to this script -> apt package location')+Q);
+  o.push('    candidates = []');
+  o.push('    if CASCADE_DIR:');
+  o.push('        candidates.append(os.path.join(CASCADE_DIR, file_name))');
+  o.push('    data_dir = getattr(getattr(cv2, "data", None), "haarcascades", None)');
+  o.push('    if data_dir:');
+  o.push('        candidates.append(os.path.join(data_dir, file_name))');
+  o.push('    candidates.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), file_name))');
+  o.push('    candidates.append(os.path.join("/usr/share/opencv4/haarcascades", file_name))');
+  o.push('    for path in candidates:');
+  o.push('        if os.path.isfile(path):');
+  o.push('            return path');
+  o.push('    return None');
+  o.push('');
+  o.push('');
   o.push('def load_cascade(file_name):');
-  o.push('    '+Q+L('โหลด cascade จากโฟลเดอร์ของ opencv-python และตรวจว่าโหลดสำเร็จจริง',
-                    'Load a cascade from the opencv-python data folder and verify it actually loaded')+Q);
-  o.push('    path = os.path.join(cv2.data.haarcascades, file_name)');
-  o.push('    if not os.path.exists(path):');
-  o.push('        path = file_name  # '+L('เผื่อวางไฟล์ไว้ข้าง ๆ สคริปต์','fall back to a file next to this script'));
+  o.push('    path = cascade_path(file_name)');
+  o.push('    if path is None:');
+  o.push('        print("[ERROR] '+L('หาไฟล์ cascade ไม่พบ','cascade file not found')+':", file_name)');
+  o.push('        print("  - pip: pip install opencv-python  ('+L('มี cascade มาให้','ships the cascades')+')")');
+  o.push('        print("  - apt: sudo apt install opencv-data")');
+  o.push('        print("  - '+L('หรือวางไฟล์ XML ไว้ข้างสคริปต์นี้','or place the XML next to this script')+'")');
+  o.push('        print("  - '+L('หรือใส่โฟลเดอร์ลงในค่า CASCADE_DIR ที่หัวไฟล์','or set the CASCADE_DIR constant at the top of this file')+'")');
+  o.push('        sys.exit(1)');
   o.push('    classifier = cv2.CascadeClassifier(path)');
   o.push('    if classifier.empty():');
   o.push('        print("[ERROR] '+L('โหลด cascade ไม่ได้','could not load cascade')+':", path)');
   o.push('        sys.exit(1)');
   o.push('    return classifier');
+
   o.push('');
   o.push('');
   o.push('DETECTOR = load_cascade(CASCADE_FILE)');
