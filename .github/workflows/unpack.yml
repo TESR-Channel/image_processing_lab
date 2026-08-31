@@ -1,0 +1,52 @@
+name: Unpack index.html and deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deploy/**'
+      - '.github/workflows/unpack.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  unpack-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rebuild index.html from parts
+        run: |
+          set -e
+          cat deploy/index.part* | tr -d '\n' | base64 -d | xz -d > index.html
+          echo "$(cat deploy/index.sha256)  index.html" | sha256sum -c
+
+      - name: Commit rebuilt index.html
+        run: |
+          git config user.name "tesr-deploy-bot"
+          git config user.email "actions@github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "index.html unchanged"
+          else
+            git commit -m "Rebuild index.html from deploy parts [skip ci]"
+            git push
+          fi
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
