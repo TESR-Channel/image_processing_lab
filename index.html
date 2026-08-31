@@ -1460,6 +1460,25 @@ function params(){
 /* ---------------- render (OpenCV.js) ---------------- */
 let srcMat=null, busy=false, queued=false;
 const GOLD=[212,175,55,255], CRIM=[209,73,91,255], INK=[240,240,240,255];
+/* Text overlays drawn with Canvas 2D AFTER cv.imshow - OpenCV's Hershey fonts have no Thai glyphs,
+   so anything that may contain Thai (banners, enrolled names) goes through here instead of cv.putText. */
+let OVERLAYS=[];
+const css=c=>'rgb('+c[0]+','+c[1]+','+c[2]+')';
+function drawOverlays(){
+  if(!OVERLAYS.length) return;
+  const cvs=$('canvasResult'), ctx=cvs.getContext('2d');
+  const k=Math.max(1, cvs.width/640);
+  OVERLAYS.forEach(o=>{
+    const size=Math.round((o.size||15)*k);
+    ctx.font=(o.bold?'600 ':'500 ')+size+'px Kanit, Sarabun, "Segoe UI", sans-serif';
+    ctx.textBaseline='alphabetic';
+    if(o.bar){ ctx.fillStyle='rgba(20,20,24,0.84)'; ctx.fillRect(0,o.bar[0]*k,cvs.width,o.bar[1]*k); }
+    ctx.lineWidth=Math.max(2,Math.round(3*k)); ctx.lineJoin='round';
+    ctx.strokeStyle='rgba(0,0,0,0.75)'; ctx.strokeText(o.text,o.x*k,o.y*k);
+    ctx.fillStyle=o.color||css(GOLD); ctx.fillText(o.text,o.x*k,o.y*k);
+  });
+  OVERLAYS=[];
+}
 
 function render(){
   if(busy){queued=true;return;}
@@ -1494,11 +1513,10 @@ function doRender(){
   if(LIVE && !liveProc){
     // raw preview: no detection until the user explicitly starts it
     out=srcMat.clone();
-    const wbar=out.cols;
-    cv.rectangle(out,new cv.Point(0,0),new cv.Point(wbar,44),new cv.Scalar(20,20,24,215),-1);
-    cv.putText(out, LANG==='en'?'PREVIEW - press "Start processing" when ready':'ภาพสด - พร้อมแล้วกด "เริ่มประมวลผล"',
-               new cv.Point(12,29), cv.FONT_HERSHEY_SIMPLEX, 0.62, new cv.Scalar(...GOLD), 2, cv.LINE_AA);
     cv.imshow('canvasResult',out); out.delete();
+    OVERLAYS.push({x:12,y:29,size:16,bold:true,bar:[0,44],
+      text: LANG==='en'?'PREVIEW - press "Start processing" when ready':'ภาพสด - ปรับค่าให้พร้อม แล้วกด "เริ่มประมวลผลด้วยค่าที่ตั้งไว้"'});
+    drawOverlays();
     $('st_size').textContent=w+'×'+h;
     $('st_count').textContent='—';
     $('st_time').textContent='—';
@@ -1524,6 +1542,7 @@ function doRender(){
   }
 
   cv.imshow('canvasResult',out); out.delete();
+  drawOverlays();
 
   const elapsed=performance.now()-t0;
   $('st_size').textContent=w+'×'+h;
@@ -1847,7 +1866,7 @@ function runFace(src,F){
     }
     const text=(F.dist&&dist!==null)?label+' ['+dist.toFixed(0)+']':label;
     cv.rectangle(dst,new cv.Point(f.x,f.y),new cv.Point(f.x+f.width,f.y+f.height),col,th);
-    cv.putText(dst,text,new cv.Point(f.x,Math.max(14,f.y-6)),cv.FONT_HERSHEY_SIMPLEX,0.6,col,Math.max(1,th-1),cv.LINE_AA);
+    OVERLAYS.push({x:f.x,y:Math.max(16,f.y-8),size:15,bold:true,text:text,color:css(label.startsWith('Unknown')?CRIM:GOLD)});
     rows.push([i+1,label,dist===null?'—':dist.toFixed(1),f.x,f.y,f.width]);
   });
   drawBadge(dst,'Faces: '+faces.length+' / known '+known);
@@ -2041,11 +2060,10 @@ function detect(clf,gray,H,minSize){
 function cascadeProblem(src,msg){
   const tmp=src.clone();
   const w=tmp.cols;
-  cv.rectangle(tmp,new cv.Point(0,0),new cv.Point(w,64),new cv.Scalar(20,20,24,235),-1);
-  cv.putText(tmp,msg,new cv.Point(14,26),cv.FONT_HERSHEY_SIMPLEX,0.62,new cv.Scalar(209,120,130,255),2,cv.LINE_AA);
-  cv.putText(tmp,LANG==='en'?'see the message bar above / README':'ดูข้อความแถบบนสุด / README',
-             new cv.Point(14,52),cv.FONT_HERSHEY_SIMPLEX,0.5,new cv.Scalar(...GOLD),1,cv.LINE_AA);
   cv.imshow('canvasResult',tmp); tmp.delete();
+  OVERLAYS.push({x:14,y:26,size:15,bold:true,bar:[0,64],color:'rgb(230,120,130)',text:msg});
+  OVERLAYS.push({x:14,y:52,size:13,text:LANG==='en'?'see the message bar above / README':'ดูข้อความแถบบนสุด / README'});
+  drawOverlays();
 }
 function runHaar(src,H){
   const main=ensureCascade(H.cascade);
@@ -2226,6 +2244,10 @@ cvsR.addEventListener('pointerdown',e=>{
   }
   const f=frac(pt), t=$('d_type').value;
   if(t==='text'){
+    if(/[^\x00-\x7F]/.test($('d_text').value) && !window._warnedAscii){
+      window._warnedAscii=true;
+      toast(LANG==='en'?'cv2.putText only renders ASCII - Thai text shows as ?? here and on the device alike':'cv2.putText วาดได้เฉพาะ ASCII - ข้อความไทยจะขึ้น ?? ทั้งที่นี่และบนอุปกรณ์จริง');
+    }
     // stamp the text where the finger lands, then let the same press drag it around
     const sh=Object.assign({type:'text',x1:f.x,y1:f.y,x2:f.x,y2:f.y,r:0.25},styleFromControls());
     SHAPES.push(sh);
