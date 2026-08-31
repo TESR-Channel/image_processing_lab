@@ -775,8 +775,8 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
         <div style="margin-top:13px"></div>
         <div class="field">
           <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="f.thr">ระยะสูงสุดที่ยอมรับว่าเป็นคนเดียวกัน</label><b id="f_thrV">70</b></div>
-          <input type="range" id="f_thr" min="10" max="200" value="70" />
-          <div class="hint" data-i18n="f.thrHint">ยิ่งต่ำยิ่งเข้มงวด ถ้าเกินค่านี้จะขึ้นว่า Unknown</div>
+          <input type="range" id="f_thr" min="10" max="400" value="70" />
+          <div class="hint" data-i18n="f.thrHint">ยิ่งต่ำยิ่งเข้มงวด ถ้าเกินค่านี้จะขึ้นว่า Unknown · ระบบตั้งค่านี้ให้อัตโนมัติจากตัวอย่างที่ลงทะเบียน (ปรับเองต่อได้)</div>
         </div>
         <details class="adv"><summary data-i18n="adv">ตัวเลือกขั้นสูง</summary>
         <div class="field">
@@ -1001,7 +1001,7 @@ const I18N = {
     'f.note':'The browser mode compares LBP histograms with a chi-square distance against the faces you enrol, so you can tune it live. The generated Python uses the real LBPHFaceRecognizer from opencv-contrib — same idea, different implementation, so the numbers will not match.',
     'f.name':'Name to enrol','f.add':'Enrol the face in this image','f.clear':'Clear all',
     'f.size':'Face crop size used for matching','f.thr':'Largest distance still counted as a match',
-    'f.thrHint':'Lower is stricter. Anything above this shows as Unknown','f.dist':'Show the distance on the box',
+    'f.thrHint':'Lower is stricter. Anything above this shows as Unknown. Set automatically from your enrolled samples - adjust freely afterwards.','f.dist':'Show the distance on the box',
     'f.privacy':'Enrolled faces live only in this tab memory and vanish when you close the page — nothing is uploaded or written to disk. In a real system, face data is biometric data under Thai PDPA and needs explicit consent.',
     'l.blur':'Reduce noise with GaussianBlur before Canny','l.low':'Canny threshold1','l.high':'Canny threshold2',
     'l.cannyHint':'A common starting point is threshold2 around 2-3x threshold1',
@@ -1784,9 +1784,40 @@ $('f_add').onclick=()=>{
   let person=PEOPLE.find(p=>p.name===name);
   if(!person){ person={name:name,samples:[]}; PEOPLE.push(person); }
   person.samples.push(desc);
+  const cal=calibrateThreshold();
   renderPeople(); render();
-  toast(LANG==='en'?'Enrolled '+name+' ('+person.samples.length+')':'ลงทะเบียน '+name+' แล้ว ('+person.samples.length+' ภาพ)');
+  if(cal){
+    toast(LANG==='en'
+      ? 'Enrolled '+name+' ('+person.samples.length+') - threshold auto-set to '+cal.thr+' (own samples differ up to '+cal.within+')'
+      : 'ลงทะเบียน '+name+' ('+person.samples.length+' ภาพ) - ตั้งเกณฑ์ให้ '+cal.thr+' อัตโนมัติ (ตัวอย่างของคนเดียวกันต่างกันสูงสุด '+cal.within+')');
+  }else{
+    toast(LANG==='en'?'Enrolled '+name+' ('+person.samples.length+')':'ลงทะเบียน '+name+' แล้ว ('+person.samples.length+' ภาพ)');
+  }
 };
+
+function calibrateThreshold(){
+  // within-person spread: for each sample, distance to its nearest sibling
+  let within=0, pairs=0;
+  PEOPLE.forEach(p=>{
+    if(p.samples.length<2) return;
+    p.samples.forEach((a,i)=>{
+      let best=Infinity;
+      p.samples.forEach((b,j)=>{ if(i!==j){ const d=chiSquare(a,b); if(d<best) best=d; } });
+      if(best<Infinity){ within=Math.max(within,best); pairs++; }
+    });
+  });
+  if(!pairs) return null;
+  // between-person floor: closest distance between samples of different people
+  let between=Infinity;
+  for(let i=0;i<PEOPLE.length;i++) for(let j=i+1;j<PEOPLE.length;j++)
+    PEOPLE[i].samples.forEach(a=>PEOPLE[j].samples.forEach(b=>{ const d=chiSquare(a,b); if(d<between) between=d; }));
+  let thr=within*1.15;
+  if(between<Infinity) thr=Math.min(thr,(within+between)/2);   // stay below the nearest stranger
+  const el=$('f_thr');
+  thr=Math.round(Math.min(+el.max,Math.max(+el.min,thr)));
+  el.value=thr; syncLabels();
+  return {thr:thr, within:Math.round(within), between:between<Infinity?Math.round(between):null};
+}
 
 function runFace(src,F){
   const entry=ensureCascade('haarcascade_frontalface_default.xml');
@@ -1812,8 +1843,9 @@ function runFace(src,F){
       const m=bestMatch(faceDescriptor(gray,f,F.size));
       dist=m.dist;
       if(m.dist<=F.thr){ label=m.name; col=new cv.Scalar(...GOLD); known++; }
+      else label='Unknown ('+(LANG==='en'?'closest: ':'ใกล้สุด: ')+m.name+')';
     }
-    const text=(F.dist&&dist!==null)?label+' ('+dist.toFixed(0)+')':label;
+    const text=(F.dist&&dist!==null)?label+' ['+dist.toFixed(0)+']':label;
     cv.rectangle(dst,new cv.Point(f.x,f.y),new cv.Point(f.x+f.width,f.y+f.height),col,th);
     cv.putText(dst,text,new cv.Point(f.x,Math.max(14,f.y-6)),cv.FONT_HERSHEY_SIMPLEX,0.6,col,Math.max(1,th-1),cv.LINE_AA);
     rows.push([i+1,label,dist===null?'—':dist.toFixed(1),f.x,f.y,f.width]);
@@ -3057,7 +3089,8 @@ function codeFace(P){
   o.push('FACE_SIZE = ('+F.size+', '+F.size+')');
   o.push('SCALE_FACTOR = '+F.sf.toFixed(2));
   o.push('MIN_NEIGHBORS = '+F.mn);
-  o.push('CONFIDENCE_MAX = '+F.thr+'         # '+L('เกินค่านี้ถือว่า Unknown','anything above this counts as Unknown'));
+  o.push('CONFIDENCE_MAX = 70         # '+L('สเกลของ LBPH (ปกติ 40-90) เกินค่านี้ถือว่า Unknown - เกณฑ์ในเบราว์เซอร์ ('+F.thr+') เป็นคนละมาตรวัด ให้จูนค่านี้ด้วย --tune',
+                                          'LBPH scale (typically 40-90); above this counts as Unknown. The browser threshold ('+F.thr+') is a different metric - tune this with --tune'));
   o.push('SHOW_CONFIDENCE = '+(F.dist?'True':'False'));
   o.push('');
   o.push('GOLD = (55, 175, 212)     # BGR');
@@ -3789,7 +3822,7 @@ function paramSummary(P){
   }else if(TAB==='face'){
     const F=P.face;
     rows.push([en?'Crop size':'ขนาดครอป', F.size+' x '+F.size],
-              [en?'Max distance':'ระยะสูงสุด', F.thr],
+              [en?'Browser threshold (LBPH uses 70)':'เกณฑ์ในเบราว์เซอร์ (Python ใช้ 70)', F.thr],
               ['scaleFactor · minNeighbors', F.sf.toFixed(2)+' · '+F.mn]);
   }
   return rows;
