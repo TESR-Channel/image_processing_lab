@@ -1248,7 +1248,11 @@ loadCv(0);
 /* ---------------- image source ---------------- */
 const imgEl = new Image();
 let imgLoaded=false, currentName='ex2.jpg';
-const SAMPLES=['ex2.jpg','ex3.jpg','ex1.jpg','ex4.png','ex6.png','ex1.png','ex3.png','Square_500x500.jpg',
+const SAMPLES=['ex2.jpg',
+  // generated scenes for the Codes & markers tab - deliberately tilted, lit
+  // unevenly and JPEG'd, because that is what a camera gives you
+  'codes_mixed.jpg','codes_aruco.jpg','codes_barcode.jpg',
+  'ex3.jpg','ex1.jpg','ex4.png','ex6.png','ex1.png','ex3.png','Square_500x500.jpg',
   'sudoku.jpg','sudoku-original.jpg','452659.jpg','ex01.png'];
 const sampWrap=$('samples');
 SAMPLES.forEach(n=>{
@@ -3233,7 +3237,10 @@ function runCodes(src,Z){
       corners=new cv.MatVector(); ids=new cv.Mat(); rej=new cv.MatVector();
       det.detectMarkers(gray,corners,ids,rej);
       const sides=[];
-      for(let i=0;i<ids.rows;i++){
+      // the ids Mat comes back 1xN here, not Nx1, so ids.rows is 1 however many
+      // markers were found - the corner vector is the trustworthy count
+      const N=Math.min(corners.size(), ids.data32S?ids.data32S.length:0);
+      for(let i=0;i<N;i++){
         const id=ids.data32S[i], c=corners.get(i), p=c.data32F;
         quad(p,new cv.Scalar(...GOLD));
         if(Z.corner) for(let k=0;k<4;k++) cv.circle(dst,new cv.Point(Math.round(p[k*2]),Math.round(p[k*2+1])),th+2,new cv.Scalar(...CRIM),-1);
@@ -3249,7 +3256,7 @@ function runCodes(src,Z){
         const med=sides[Math.floor(sides.length/2)];
         if(med>1) mmPerPx=Z.mm/med;
       }
-      found.push('ArUco '+ids.rows);
+      found.push('ArUco '+N);
     }catch(e){
       found.push('ArUco n/a');
       OVERLAYS.push({x:14,y:52,size:13,color:'rgb(230,120,130)',
@@ -3261,21 +3268,38 @@ function runCodes(src,Z){
 
   // ---- QR ----
   if(Z.qr && typeof cv.QRCodeDetector==='function'){
-    let qd=null,pts=null;
+    let qd=null,pts=null,inf=null;
     try{
-      qd=new cv.QRCodeDetector(); pts=new cv.Mat();
-      const text=qd.detectAndDecode(gray,pts);
-      if(pts.rows*pts.cols>=4 && text!==''){
-        const p=pts.data32F;
+      qd=new cv.QRCodeDetector();
+      const hits=[];   // [text, 8 floats]
+      // Multi finds several at once, but on a busy scene it quietly returns
+      // nothing where the single-code path reads the very same symbol, so we
+      // try it first and fall back rather than trusting either alone.
+      try{
+        inf=new cv.StringVector(); pts=new cv.Mat();
+        if(qd.detectAndDecodeMulti(gray,inf,pts)){
+          for(let i=0;i<inf.size();i++){
+            const t=inf.get(i);
+            if(t && pts.data32F.length>=i*8+8) hits.push([t,pts.data32F.subarray(i*8,i*8+8)]);
+          }
+        }
+      }catch(e){ /* binding missing or unhappy - the single path below still works */ }
+      if(!hits.length){
+        if(pts) pts.delete();
+        pts=new cv.Mat();
+        const text=qd.detectAndDecode(gray,pts);
+        if(text && pts.rows*pts.cols>=4) hits.push([text,pts.data32F]);
+      }
+      hits.forEach(([text,p])=>{
         quad(p,new cv.Scalar(...CRIM));
         // the payload may be Thai and cv.putText has no Thai glyphs, so only an
         // ASCII-safe stub goes on the image - the full text is in the table
         put('QR',p[0],p[1],new cv.Scalar(...CRIM));
         n++; rows.push([n,'QR',text,Math.round((p[0]+p[4])/2),Math.round((p[1]+p[5])/2),'']);
-      }
-      found.push('QR '+(text?1:0));
+      });
+      found.push('QR '+hits.length);
     }catch(e){ found.push('QR n/a'); }
-    finally{ [qd,pts].forEach(o=>{ try{ o&&o.delete&&o.delete(); }catch(e){} }); }
+    finally{ [qd,pts,inf].forEach(o=>{ try{ o&&o.delete&&o.delete(); }catch(e){} }); }
   }
 
   // ---- barcode ----
@@ -5229,15 +5253,20 @@ function codeCodes(P){
   }
   if(Z.qr){
     o.push('    if READ_QR:');
-    o.push('        # '+L('detectAndDecodeMulti อ่านได้หลายอันในเฟรมเดียว','detectAndDecodeMulti handles several codes in one frame'));
+    o.push('        # '+L('detectAndDecodeMulti อ่านได้หลายอันในเฟรมเดียว แต่บนฉากที่รกมันคืนค่าว่างเงียบ ๆ ทั้งที่ detectAndDecode อ่านอันเดียวกันได้ จึงลองสองชั้น',
+                          'detectAndDecodeMulti handles several codes at once, but on a busy scene it quietly returns nothing where the single-code path reads the very same symbol - so try both.'));
     o.push('        ok, texts, points, _ = QR_DETECTOR.detectAndDecodeMulti(gray)');
+    o.push('        pairs = []');
     o.push('        if ok and points is not None:');
-    o.push('            for text, quad in zip(texts, points):');
-    o.push('                if not text:');
-    o.push('                    continue        # '+L('เจอกรอบแต่ถอดรหัสไม่ได้ ไม่ควรรายงานเป็นผลลัพธ์','found but not decoded - not a result'));
-    o.push('                draw_quad(result, quad, CRIMSON, "QR")');
-    o.push('                cx, cy = np.asarray(quad).reshape(4, 2).mean(axis=0)');
-    o.push('                found.append({"type": "QR", "value": text, "x": int(cx), "y": int(cy)})');
+    o.push('            pairs = [(t, q) for t, q in zip(texts, points) if t]');
+    o.push('        if not pairs:');
+    o.push('            text, quad, _ = QR_DETECTOR.detectAndDecode(gray)');
+    o.push('            if text and quad is not None:');
+    o.push('                pairs = [(text, quad)]');
+    o.push('        for text, quad in pairs:');
+    o.push('            draw_quad(result, quad, CRIMSON, "QR")');
+    o.push('            cx, cy = np.asarray(quad).reshape(4, 2).mean(axis=0)');
+    o.push('            found.append({"type": "QR", "value": text, "x": int(cx), "y": int(cy)})');
     o.push('');
   }
   if(Z.bar){

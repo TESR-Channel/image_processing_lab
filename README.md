@@ -147,7 +147,8 @@ The page also tries multiple fallback strategies automatically (relaxed constrai
 - **OpenCV's barcode detector works on edge gradients, so it dislikes pixel-perfect images.** Measured on this page's own output: with no blur it decodes nothing; with a 3×3 blur it *finds* the bars but still fails to decode; at 5×5 it decodes. That is why "soften edges" exists and why it tries 5×5 then 7×7. A photographed barcode usually needs none of this — the camera does the softening for you. The same two-step is written into the exported Python.
 - For the same reason the generator holds the EAN-13 module width to 2–4 px however large the export is: thin bars read far more reliably than thick ones. Scale it up in the print dialog, not in the pixels.
 - ArUco and QR have no such quirk — both round-trip cleanly at every size tested, Thai text included.
-- `cv2.QRCodeDetector().detectAndDecode` reads one QR at a time, which is what the browser tab does. The exported Python uses `detectAndDecodeMulti`, which returns several in one frame.
+- `detectAndDecodeMulti` finds several QR codes at once, but on a busy scene it can quietly return nothing where the single-code `detectAndDecode` reads the very same symbol. Both the page and the exported Python try multi first and fall back to single rather than trusting either alone.
+- Three sample scenes ship for this tab: `codes_mixed.jpg` (one of each), `codes_aruco.jpg` (five markers, good for the mm/px lesson) and `codes_barcode.jpg`. They are **generated illustrations, not photographs** — built by `_build/make_samples.py`, which tilts, shades, softens and JPEGs each code the way a camera would, and refuses to write any image it cannot decode back.
 
 ### About Face Recognition
 
@@ -274,7 +275,8 @@ Deploy ขึ้น GitHub Pages: **Settings → Pages → Source: GitHub Action
 - **ตัวอ่านบาร์โค้ดของ OpenCV ดูการไล่ระดับของขอบ จึงไม่ถูกกับภาพที่คมเป๊ะ** วัดจากผลลัพธ์ของหน้านี้เอง: ไม่เบลอเลย = อ่านไม่ออก, เบลอ 3x3 = "เจอ" แท่งแต่ถอดรหัสไม่ได้, เบลอ 5x5 = ถอดได้ จึงมีตัวเลือก "เบลอเล็กน้อยก่อนอ่าน" และระบบจะลอง 5x5 ก่อนแล้วค่อย 7x7 · ถ้าถ่ายจากกล้องจริงมักไม่ต้องใช้เลยเพราะกล้องเบลอให้อยู่แล้ว และโค้ด Python ที่ export ก็ทำสองขั้นเดียวกัน
 - ด้วยเหตุผลเดียวกัน ตัวสร้าง EAN-13 จะกดความกว้างแท่งไว้ที่ 2–4 พิกเซลเสมอไม่ว่าจะสั่งขนาดใหญ่แค่ไหน เพราะแท่งบางอ่านง่ายกว่าแท่งหนามาก ถ้าต้องการใหญ่ขึ้นให้ไปขยายตอนสั่งพิมพ์
 - ArUco กับ QR ไม่มีอาการนี้ ทดสอบแล้วอ่านกลับได้ครบทุกขนาด รวมถึงข้อความภาษาไทย
-- `cv2.QRCodeDetector().detectAndDecode` อ่าน QR ได้ทีละอัน ซึ่งเป็นสิ่งที่แท็บในเบราว์เซอร์ทำ ส่วนโค้ด Python ที่ export ใช้ `detectAndDecodeMulti` อ่านได้หลายอันในเฟรมเดียว
+- `detectAndDecodeMulti` อ่าน QR ได้หลายอันในเฟรมเดียว แต่บนฉากที่รกมันคืนค่าว่างเงียบ ๆ ทั้งที่ `detectAndDecode` อ่านอันเดียวกันได้ ทั้งหน้าเว็บและโค้ด Python ที่ export จึงลอง multi ก่อนแล้วค่อย fallback ไป single
+- แท็บนี้มีภาพตัวอย่างให้ 3 ภาพ: `codes_mixed.jpg` (มีครบสามแบบ), `codes_aruco.jpg` (ห้ามาร์กเกอร์ เหมาะกับบทเรียน มม./พิกเซล) และ `codes_barcode.jpg` — ทั้งหมดเป็น**ภาพที่สร้างขึ้น ไม่ใช่ภาพถ่ายจริง** สร้างด้วย `_build/make_samples.py` ซึ่งเอียง ใส่แสงไม่สม่ำเสมอ เบลอ และบันทึกเป็น JPEG เลียนแบบสิ่งที่กล้องทำ และจะไม่ยอมเขียนไฟล์ที่อ่านกลับไม่ได้
 
 ### License
 
