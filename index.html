@@ -368,6 +368,7 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
         <button class="tab" data-tab="draw"><span class="ico">✏️</span><span data-i18n="tab.draw">วาด &amp; ข้อความ</span></button>
         <button class="tab" data-tab="haar"><span class="ico">👁</span><span data-i18n="tab.haar">ตา / หน้า / ยิ้ม</span></button>
         <button class="tab" data-tab="face"><span class="ico">🪪</span><span data-i18n="tab.face">จำใบหน้า</span></button>
+        <button class="tab" data-tab="codes"><span class="ico">🔳</span><span data-i18n="tab.codes">โค้ด &amp; มาร์กเกอร์</span></button>
   </div>
   <div class="viewswitch">
     <button class="vbtn on" data-mainview="work">🎛 <span data-i18n="vw.work">ปรับแต่ง</span></button>
@@ -802,6 +803,117 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
           ระบบจริงที่เก็บใบหน้าถือเป็นข้อมูลชีวมิติตาม PDPA ต้องขอความยินยอมโดยชัดแจ้งก่อนเสมอ
         </div>
       </div>
+
+      <!-- CODES & MARKERS -->
+      <div class="body pane hidden" id="pane-codes">
+        <div class="field">
+          <label class="lbl" data-i18n="z.mode">ต้องการทำอะไร</label>
+          <select id="z_mode">
+            <option value="detect" selected data-i18n="z.mode1">อ่านโค้ดจากภาพ</option>
+            <option value="make" data-i18n="z.mode2">สร้างโค้ดไว้พิมพ์</option>
+          </select>
+        </div>
+
+        <!-- the dictionary matters when reading AND when printing, so it is
+             shared by both modes rather than living inside one of them -->
+        <div class="field" id="z_dictWrap">
+          <label class="lbl" data-i18n="z.dict">ชุด ArUco ที่ใช้ (dictionary)</label>
+          <select id="z_dict">
+            <option value="0" selected>DICT_4X4_50</option>
+            <option value="1">DICT_4X4_100</option>
+            <option value="4">DICT_5X5_50</option>
+            <option value="5">DICT_5X5_100</option>
+            <option value="8">DICT_6X6_50</option>
+            <option value="10">DICT_6X6_250</option>
+            <option value="12">DICT_7X7_50</option>
+            <option value="16">DICT_ARUCO_ORIGINAL</option>
+            <option value="20">DICT_APRILTAG_36h11</option>
+          </select>
+          <div class="hint" data-i18n="z.dictHint">ต้องตรงกับชุดที่ใช้ตอนพิมพ์ ถ้าเลือกผิดชุดจะอ่านไม่เจอเลยแม้มาร์กเกอร์จะชัดมาก — เป็นสาเหตุอันดับหนึ่งที่ "มันไม่เจอ"</div>
+        </div>
+
+        <!-- ---------- READ ---------- -->
+        <div id="z_detectWrap">
+          <div class="field">
+            <label class="lbl" data-i18n="z.what">สิ่งที่ต้องการอ่าน</label>
+            <label class="check"><input type="checkbox" id="z_aruco" checked /><span data-i18n="z.tAruco">ArUco marker — บอกตำแหน่งและมุม</span></label>
+            <label class="check"><input type="checkbox" id="z_qr" checked /><span data-i18n="z.tQr">QR code — เก็บข้อความได้ยาว</span></label>
+            <label class="check"><input type="checkbox" id="z_bar" /><span data-i18n="z.tBar">บาร์โค้ด EAN / UPC — รหัสสินค้า</span></label>
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="z.mm">ขนาดจริงของมาร์กเกอร์ (มม.)</label><b id="z_mmV">50</b></div>
+            <input type="range" id="z_mm" min="0" max="300" step="5" value="50" />
+            <div class="hint" data-i18n="z.mmHint">วัดจากขอบนอกถึงขอบนอกของสี่เหลี่ยมดำ ใส่แล้วระบบจะคำนวณ มม./พิกเซล ให้ ใช้วัดขนาดของจริงในภาพได้ · 0 = ไม่ใช้</div>
+          </div>
+          <details class="adv"><summary data-i18n="adv">ตัวเลือกขั้นสูง</summary>
+          <label class="check"><input type="checkbox" id="z_soft" checked /><span data-i18n="z.soft">เบลอเล็กน้อยก่อนอ่านบาร์โค้ด</span></label>
+          <div class="hint" data-i18n="z.softHint">ตัวอ่านบาร์โค้ดของ OpenCV ดูการไล่ระดับของขอบ ภาพที่คมเป๊ะแบบไฟล์ที่เพิ่งสร้างจึงมักอ่านไม่ออก แต่ภาพจากกล้องจริงอ่านได้ ตัวเลือกนี้เบลอ 5x5 ก่อนอ่านเพื่อให้ทดสอบบนจอได้</div>
+          <label class="check"><input type="checkbox" id="z_corner" /><span data-i18n="z.corner">วาดมุมทั้งสี่ของ ArUco</span></label>
+          </details>
+          <label class="check"><input type="checkbox" id="z_label" checked /><span data-i18n="z.label">แสดงค่าที่อ่านได้บนภาพ</span></label>
+          <div class="hint" data-i18n="z.readHint">ลองกด "สร้างโค้ดไว้พิมพ์" แล้วกดปุ่มส่งเข้าภาพหลัก จะได้ทดสอบวงจรครบ สร้าง → อ่าน → ออกเป็นโค้ด Python</div>
+        </div>
+
+        <!-- ---------- MAKE ---------- -->
+        <div id="z_makeWrap" class="hidden">
+          <div class="field">
+            <label class="lbl" data-i18n="z.type">ชนิดของโค้ด</label>
+            <select id="z_type">
+              <option value="aruco" selected data-i18n="z.ty1">ArUco marker</option>
+              <option value="qr" data-i18n="z.ty2">QR code</option>
+              <option value="ean13" data-i18n="z.ty3">บาร์โค้ด EAN-13</option>
+            </select>
+          </div>
+          <div id="z_gAruco">
+            <div class="field">
+              <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="z.id">หมายเลขมาร์กเกอร์ (id)</label><b id="z_idV">7</b></div>
+              <input type="range" id="z_id" min="0" max="49" value="7" />
+              <div class="hint" data-i18n="z.idHint">แต่ละชุดมีจำนวน id จำกัดตามชื่อ เช่น DICT_4X4_50 มี id 0–49 เท่านั้น</div>
+            </div>
+            <div class="field">
+              <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="z.border">ความหนาขอบดำ (border bits)</label><b id="z_borderV">1</b></div>
+              <input type="range" id="z_border" min="1" max="3" value="1" />
+            </div>
+          </div>
+          <div id="z_gQr" class="hidden">
+            <div class="field">
+              <label class="lbl" data-i18n="z.text">ข้อความที่จะเก็บ</label>
+              <input type="text" id="z_text" value="https://tesracademy.com" />
+              <div class="hint" data-i18n="z.textHint">ภาษาไทยก็ได้ เก็บเป็น UTF-8 · ยิ่งข้อความยาว ลายยิ่งละเอียด ต้องพิมพ์ใหญ่ขึ้นหรือเข้าใกล้ขึ้น</div>
+            </div>
+            <div class="field">
+              <label class="lbl" data-i18n="z.ec">ระดับการกู้คืนเมื่อโค้ดเสียหาย</label>
+              <select id="z_ec">
+                <option value="L" data-i18n="z.ecL">L — กู้ได้ ~7% (ลายเล็กสุด)</option>
+                <option value="M" selected data-i18n="z.ecM">M — กู้ได้ ~15% (ค่าแนะนำ)</option>
+                <option value="Q" data-i18n="z.ecQ">Q — กู้ได้ ~25%</option>
+                <option value="H" data-i18n="z.ecH">H — กู้ได้ ~30% (ทนรอยเปื้อนที่สุด)</option>
+              </select>
+              <div class="hint" data-i18n="z.ecHint">ในโรงงานที่ฉลากเลอะหรือถูกขูด ให้ใช้ Q หรือ H แลกกับลายที่ใหญ่ขึ้น</div>
+            </div>
+          </div>
+          <div id="z_gEan" class="hidden">
+            <div class="field">
+              <label class="lbl" data-i18n="z.digits">ตัวเลข 12 หลัก</label>
+              <input type="text" id="z_digits" value="885012341234" inputmode="numeric" />
+              <div class="hint" data-i18n="z.digitsHint">ระบบคำนวณหลักตรวจสอบ (check digit) ตัวที่ 13 ให้เอง · EAN-13 เก็บได้แต่ตัวเลขเท่านั้น ถ้าต้องเก็บตัวอักษรให้ใช้ QR</div>
+            </div>
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="z.px">ขนาดภาพที่สร้าง (พิกเซล)</label><b id="z_pxV">480</b></div>
+            <input type="range" id="z_px" min="160" max="1200" step="40" value="480" />
+          </div>
+          <div id="z_err" class="note hidden" style="margin:0 0 12px"></div>
+          <div class="row">
+            <button class="btn primary" id="z_use" style="flex:1" data-i18n="z.use">ส่งเข้าภาพหลักเพื่อลองอ่าน</button>
+            <button class="btn" id="z_dl" style="flex:1" data-i18n="z.dl">ดาวน์โหลด PNG</button>
+          </div>
+          <div class="hint" style="margin-top:10px" data-i18n="z.printHint">
+            เวลาพิมพ์จริง ให้เหลือขอบขาวรอบโค้ดอย่างน้อยเท่ากับความกว้างของช่องสีดำหนึ่งช่อง ไม่มีขอบขาว = อ่านไม่ออก
+            และอย่าพิมพ์ลงกระดาษมันหรือเคลือบเงา เพราะแสงสะท้อนทำให้กล้องอ่านไม่ได้
+          </div>
+        </div>
+      </div>
     </div>
 
   <!-- ============ STAGE ============ -->
@@ -998,6 +1110,36 @@ const I18N = {
     'stat.size':'Processed size','stat.found':'Detected','stat.time':'Browser time',
     'stat.note':'The time shown is OpenCV.js (WebAssembly) running on this machine — it is not a Raspberry Pi or Jetson benchmark. Always measure again on the real hardware.',
     'tab.draw':'Draw & text','tab.haar':'Haar Cascade','tab.line':'Lines (Hough)','tab.face':'Face Recognition',
+    'tab.codes':'Codes & markers',
+    'z.mode':'What do you want to do','z.mode1':'Read codes from an image','z.mode2':'Make a code to print',
+    'z.what':'What to look for',
+    'z.tAruco':'ArUco marker — gives position and angle',
+    'z.tQr':'QR code — holds long text',
+    'z.tBar':'EAN / UPC barcode — product numbers',
+    'z.dict':'ArUco set in use (dictionary)',
+    'z.dictHint':'This must match the set the markers were printed from. Pick the wrong set and nothing is found at all, however sharp the marker is — it is the number one reason for "it sees nothing".',
+    'z.mm':'Real marker size (mm)',
+    'z.mmHint':'Measured outer corner to outer corner of the black square. Fill it in and the page works out mm per pixel, so you can measure real objects in the frame. 0 = skip it.',
+    'z.soft':'Soften edges before reading barcodes',
+    'z.softHint':'OpenCV\'s barcode reader works on edge gradients, so a pixel-perfect file — like one you just generated — often will not decode, while a photo of the same code will. This blurs 5x5 first so you can test on screen.',
+    'z.corner':'Mark the four ArUco corners',
+    'z.label':'Draw what was read onto the image',
+    'z.readHint':'Try "Make a code to print", then press send-to-image: that walks the whole loop — make it, read it, export the Python.',
+    'z.type':'Kind of code','z.ty1':'ArUco marker','z.ty2':'QR code','z.ty3':'EAN-13 barcode',
+    'z.id':'Marker number (id)',
+    'z.idHint':'Each set holds a fixed number of ids — DICT_4X4_50 has ids 0 to 49 and nothing above that.',
+    'z.border':'Black border thickness (border bits)',
+    'z.text':'Text to store',
+    'z.textHint':'Thai works too, stored as UTF-8. The longer the text, the finer the pattern, so it has to be printed larger or read from closer.',
+    'z.ec':'How much damage it can survive',
+    'z.ecL':'L — recovers ~7% (smallest pattern)','z.ecM':'M — recovers ~15% (recommended)',
+    'z.ecQ':'Q — recovers ~25%','z.ecH':'H — recovers ~30% (most tolerant of dirt)',
+    'z.ecHint':'On a factory floor where labels get smeared or scratched, use Q or H and accept the larger pattern.',
+    'z.digits':'12 digits',
+    'z.digitsHint':'The 13th check digit is worked out for you. EAN-13 holds digits only — if you need letters, use a QR code.',
+    'z.px':'Size of the generated image (pixels)',
+    'z.use':'Send to the main image and read it back','z.dl':'Download PNG',
+    'z.printHint':'When you print it, leave a white margin around the code at least as wide as one dark module. No margin means no read. Avoid glossy or laminated paper — the reflection blinds the camera.',
     'f.note':'The browser mode compares LBP histograms with a chi-square distance against the faces you enrol, so you can tune it live. The generated Python uses the real LBPHFaceRecognizer from opencv-contrib — same idea, different implementation, so the numbers will not match.',
     'f.name':'Name to enrol','f.add':'Enrol the face in this image','f.clear':'Clear all',
     'f.size':'Face crop size used for matching','f.thr':'Largest distance still counted as a match',
@@ -1307,7 +1449,7 @@ let TAB='circle';
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   TAB=t.dataset.tab;
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
-  ['circle','color','pre','line','draw','haar','face'].forEach(p=>$('pane-'+p).classList.toggle('hidden',p!==TAB));
+  ['circle','color','pre','line','draw','haar','face','codes'].forEach(p=>$('pane-'+p).classList.toggle('hidden',p!==TAB));
   $('canvasResult').classList.toggle('drawmode', TAB==='draw');
   if(VIEW==='export') $('exportTabName').textContent=TAB_LABELS[TAB][LANG==='en'?1:0];
   render();
@@ -1406,6 +1548,21 @@ function syncLabels(){
   $('h_msV').textContent=$('h_ms').value;
   const isFace=$('h_cascade').value.indexOf('frontalface')>=0;
   $('h_roi').parentElement.classList.toggle('hidden', isFace);
+  $('z_mmV').textContent=(+$('z_mm').value)===0?'—':$('z_mm').value;
+  $('z_idV').textContent=$('z_id').value;
+  $('z_borderV').textContent=$('z_border').value;
+  $('z_pxV').textContent=$('z_px').value;
+  const zMake=$('z_mode').value==='make';
+  $('z_detectWrap').classList.toggle('hidden',zMake);
+  $('z_makeWrap').classList.toggle('hidden',!zMake);
+  const zType=$('z_type').value;
+  // the dictionary only means anything when ArUco is actually in play
+  $('z_dictWrap').classList.toggle('hidden', zMake ? zType!=='aruco' : !$('z_aruco').checked);
+  $('z_gAruco').classList.toggle('hidden',zType!=='aruco');
+  $('z_gQr').classList.toggle('hidden',zType!=='qr');
+  $('z_gEan').classList.toggle('hidden',zType!=='ean13');
+  $('z_id').max=String(Math.max(0,(DICT_COUNT[$('z_dict').value]||50)-1));
+  if(+$('z_id').value>+$('z_id').max){ $('z_id').value=$('z_id').max; $('z_idV').textContent=$('z_id').value; }
   const rangeMode=$('k_mode').value==='range';
   $('threshBlock').classList.toggle('hidden',rangeMode);
   $('rangeBlock').classList.toggle('hidden',!rangeMode);
@@ -1415,6 +1572,16 @@ function syncLabels(){
   $('cannyWrap').classList.toggle('hidden', !$('p_canny').checked);
   $('contWrap').classList.toggle('hidden', !$('p_cont').checked);
 }
+
+/* ---------------- ArUco dictionaries ----------------
+   The numbers are cv::aruco::PredefinedDictionaryType values, which OpenCV.js
+   exposes positionally. DICT_COUNT is how many ids each set holds - the id
+   slider is clamped to it, because asking for id 60 out of DICT_4X4_50 throws
+   inside OpenCV rather than returning an error we could show. */
+const DICT_NAME={0:'DICT_4X4_50',1:'DICT_4X4_100',4:'DICT_5X5_50',5:'DICT_5X5_100',
+  8:'DICT_6X6_50',10:'DICT_6X6_250',12:'DICT_7X7_50',16:'DICT_ARUCO_ORIGINAL',
+  20:'DICT_APRILTAG_36h11'};
+const DICT_COUNT={0:50,1:100,4:50,5:100,8:50,10:250,12:50,16:1024,20:587};
 
 /* ---------------- parameter collection ---------------- */
 function odd(v){v=parseInt(v);return v%2?v:v+1;}
@@ -1452,6 +1619,11 @@ function params(){
     haar:{cascade:$('h_cascade').value,roi:$('h_roi').checked&&$('h_cascade').value.indexOf('frontalface')<0,
       sf:Math.max(1.01,+$('h_sf').value),mn:+$('h_mn').value,ms:+$('h_ms').value,
       eq:$('h_eq').checked,label:$('h_label').checked},
+    codes:{mode:$('z_mode').value,aruco:$('z_aruco').checked,qr:$('z_qr').checked,
+      bar:$('z_bar').checked,dict:+$('z_dict').value,mm:+$('z_mm').value,
+      soft:$('z_soft').checked,corner:$('z_corner').checked,label:$('z_label').checked,
+      type:$('z_type').value,id:+$('z_id').value,border:+$('z_border').value,
+      text:$('z_text').value,ec:$('z_ec').value,digits:$('z_digits').value.trim(),px:+$('z_px').value},
     gen:{device:$('g_device').value,input:$('g_input').value,fps:$('g_fps').checked,
       save:$('g_save').checked,mqtt:$('g_mqtt').checked,picam:$('g_picamType').value}
   };
@@ -1535,6 +1707,11 @@ function doRender(){
     [out,count,rows]=r;
   }
   else if(TAB==='draw'){ [out,count,rows]=runDraw(srcMat,P.draw); }
+  else if(TAB==='codes'){
+    const r=runCodes(srcMat,P.codes);
+    if(r===null){ buildCode(P); return; }
+    [out,count,rows]=r;
+  }
   else {
     const r=runHaar(srcMat,P.haar);
     if(r===null){ buildCode(P); return; }
@@ -2116,6 +2293,1039 @@ function runHaar(src,H){
   return [dst,n,{head:['#','x','y','w','h'],rows:rows}];
 }
 
+/* ---------------- QR and EAN-13 encoders ----------------
+   Inlined from _build/encoders.js so the page stays one self-contained
+   file with no CDN dependency. OpenCV can READ these codes but ships no
+   encoder for them in the browser build, so the drawing is ours.
+   Verified by round-tripping every output back through cv2 in Python. */
+/* =============================================================================
+ * TESR Image Processing Lab - encoders.js
+ * -----------------------------------------------------------------------------
+ * Dependency-free QR Code and EAN-13 encoders for the browser teaching tool.
+ *
+ * No imports, no npm packages, no build step. Drop this file in a <script> tag
+ * (or load it in Node with require/import of the file path) and two globals
+ * appear:
+ *
+ *   qrEncode(text, ecLevel)  ->  { version, ecLevel, mask, size, modules }
+ *   ean13Encode(digits)      ->  { code, bits }
+ *
+ * Everything else lives inside the IIFE below, so nothing else can collide.
+ * The few symbols that must be reachable for debugging are prefixed __qr / __ean.
+ *
+ * References: ISO/IEC 18004 (QR Code) and ISO/IEC 15420 (EAN/UPC).
+ * ========================================================================== */
+
+(function (global) {
+  'use strict';
+
+  /* ===========================================================================
+   * SECTION 1 - QR CODE
+   * ======================================================================== */
+
+  /* ---------------------------------------------------------------------------
+   * 1.1 Static tables from ISO/IEC 18004
+   * ------------------------------------------------------------------------ */
+
+  // Total number of codewords (data + error correction) for versions 1..20.
+  // Index 0 is unused so that __qrTotalCodewords[v] reads naturally.
+  var __qrTotalCodewords = [
+    0,
+    26, 44, 70, 100, 134, 172, 196, 242, 292, 346,
+    404, 466, 532, 581, 655, 733, 815, 901, 991, 1085
+  ];
+
+  // Error correction characteristics (ISO/IEC 18004 Table 9).
+  //
+  // For each version 1..20 and each EC level we store:
+  //   [ ecCodewordsPerBlock, blocksInGroup1, dataCodewordsPerBlockG1,
+  //                          blocksInGroup2, dataCodewordsPerBlockG2 ]
+  //
+  // Group 2 is optional. When it exists its blocks always hold exactly one
+  // more data codeword than group 1 blocks. The invariant that must hold is:
+  //   ecPerBlock * (g1 + g2) + g1 * d1 + g2 * d2 === __qrTotalCodewords[v]
+  var __qrEcTable = {
+    L: [
+      null,
+      [7, 1, 19], [10, 1, 34], [15, 1, 55], [20, 1, 80], [26, 1, 108],
+      [18, 2, 68], [20, 2, 78], [24, 2, 97], [30, 2, 116], [18, 2, 68, 2, 69],
+      [20, 4, 81], [24, 2, 92, 2, 93], [26, 4, 107], [30, 3, 115, 1, 116],
+      [22, 5, 87, 1, 88], [24, 5, 98, 1, 99], [28, 1, 107, 5, 108],
+      [30, 5, 120, 1, 121], [28, 3, 113, 4, 114], [28, 3, 107, 5, 108]
+    ],
+    M: [
+      null,
+      [10, 1, 16], [16, 1, 28], [26, 1, 44], [18, 2, 32], [24, 2, 43],
+      [16, 4, 27], [18, 4, 31], [22, 2, 38, 2, 39], [22, 3, 36, 2, 37],
+      [26, 4, 43, 1, 44], [30, 1, 50, 4, 51], [22, 6, 36, 2, 37],
+      [22, 8, 37, 1, 38], [24, 4, 40, 5, 41], [24, 5, 41, 5, 42],
+      [28, 7, 45, 3, 46], [28, 10, 46, 1, 47], [26, 9, 43, 4, 44],
+      [26, 3, 44, 11, 45], [26, 3, 41, 13, 42]
+    ],
+    Q: [
+      null,
+      [13, 1, 13], [22, 1, 22], [18, 2, 17], [26, 2, 24], [18, 2, 15, 2, 16],
+      [24, 4, 19], [18, 2, 14, 4, 15], [22, 4, 18, 2, 19], [20, 4, 16, 4, 17],
+      [24, 6, 19, 2, 20], [28, 4, 22, 4, 23], [26, 4, 20, 6, 21],
+      [24, 8, 20, 4, 21], [20, 11, 16, 5, 17], [30, 5, 24, 7, 25],
+      [24, 15, 19, 2, 20], [28, 1, 22, 15, 23], [28, 17, 22, 1, 23],
+      [26, 17, 21, 4, 22], [30, 15, 24, 5, 25]
+    ],
+    H: [
+      null,
+      [17, 1, 9], [28, 1, 16], [22, 2, 13], [16, 4, 9], [22, 2, 11, 2, 12],
+      [28, 4, 15], [26, 4, 13, 1, 14], [26, 4, 14, 2, 15], [24, 4, 12, 4, 13],
+      [28, 6, 15, 2, 16], [24, 3, 12, 8, 13], [28, 7, 14, 4, 15],
+      [22, 12, 11, 4, 12], [24, 11, 12, 5, 13], [24, 11, 12, 7, 13],
+      [30, 3, 15, 13, 16], [28, 2, 14, 17, 15], [28, 2, 14, 19, 15],
+      [26, 9, 13, 16, 14], [28, 15, 15, 10, 16]
+    ]
+  };
+
+  // Row/column centres of the alignment patterns, versions 1..20.
+  // Version 1 has none. Every combination of two centres gets a 5x5 pattern,
+  // except the three combinations that would land on the finder patterns.
+  var __qrAlignmentCentres = [
+    null,
+    [],
+    [6, 18], [6, 22], [6, 26], [6, 30], [6, 34],
+    [6, 22, 38], [6, 24, 42], [6, 26, 46], [6, 28, 50],
+    [6, 30, 54], [6, 32, 58], [6, 34, 62],
+    [6, 26, 46, 66], [6, 26, 48, 70], [6, 26, 50, 74], [6, 30, 54, 78],
+    [6, 30, 56, 82], [6, 30, 58, 86], [6, 34, 62, 90]
+  ];
+
+  // 2-bit value written into the format information for each EC level.
+  // Note this is NOT in L/M/Q/H order - that is simply what the spec says.
+  var __qrEcFormatBits = { L: 1, M: 0, Q: 3, H: 2 };
+
+  var __qrMaxVersion = 20;
+
+  /* ---------------------------------------------------------------------------
+   * 1.2 Galois field GF(256) arithmetic for Reed-Solomon
+   * ------------------------------------------------------------------------ */
+
+  // QR codes use GF(2^8) built on the primitive polynomial
+  //   x^8 + x^4 + x^3 + x^2 + 1   (0x11D)
+  // We precompute exponent and logarithm tables so that multiplication is
+  // just "add the logs". This is the usual trick: a*b = exp[ log[a] + log[b] ].
+  var __qrGfExp = new Uint8Array(512);
+  var __qrGfLog = new Uint8Array(256);
+
+  (function buildGaloisTables() {
+    var x = 1;
+    for (var i = 0; i < 255; i++) {
+      __qrGfExp[i] = x;
+      __qrGfLog[x] = i;
+      // Multiply by the generator element 2, reducing modulo 0x11D when the
+      // result overflows 8 bits.
+      x <<= 1;
+      if (x & 0x100) x ^= 0x11d;
+    }
+    // Duplicate the table so that index sums up to 510 need no modulo.
+    for (var j = 255; j < 512; j++) __qrGfExp[j] = __qrGfExp[j - 255];
+  }());
+
+  function __qrGfMul(a, b) {
+    if (a === 0 || b === 0) return 0;
+    return __qrGfExp[__qrGfLog[a] + __qrGfLog[b]];
+  }
+
+  // Build the Reed-Solomon generator polynomial of the requested degree:
+  //   g(x) = (x - a^0)(x - a^1) ... (x - a^(degree-1))
+  // In GF(2^n) subtraction is XOR, so the signs do not matter.
+  // Returned coefficients are in descending power order, with the implicit
+  // leading 1 (for x^degree) omitted.
+  function __qrRsGenerator(degree) {
+    var result = [1];
+    for (var i = 0; i < degree; i++) {
+      var next = new Array(result.length + 1).fill(0);
+      var factor = __qrGfExp[i]; // a^i
+      for (var j = 0; j < result.length; j++) {
+        next[j] ^= result[j];
+        next[j + 1] ^= __qrGfMul(result[j], factor);
+      }
+      result = next;
+    }
+    return result; // length degree + 1, result[0] === 1
+  }
+
+  // Compute the `ecLen` error correction codewords for one block of data.
+  // This is plain polynomial long division of data(x) * x^ecLen by the
+  // generator polynomial; the remainder is the EC codeword sequence.
+  function __qrRsRemainder(data, ecLen) {
+    var gen = __qrRsGenerator(ecLen);
+    var remainder = new Uint8Array(ecLen);
+    for (var i = 0; i < data.length; i++) {
+      var factor = data[i] ^ remainder[0];
+      // Shift the remainder register left by one codeword.
+      remainder.copyWithin(0, 1);
+      remainder[ecLen - 1] = 0;
+      if (factor !== 0) {
+        for (var j = 0; j < ecLen; j++) {
+          // gen[0] is the leading 1 we skip, so use gen[j + 1].
+          remainder[j] ^= __qrGfMul(gen[j + 1], factor);
+        }
+      }
+    }
+    return remainder;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 1.3 BCH codes for the format and version information
+   * ------------------------------------------------------------------------ */
+
+  // Generic BCH remainder: divide `value` (already shifted left by the number
+  // of check bits) by `generator`, where `generator` has degree `checkBits`.
+  function __qrBchRemainder(value, generator, checkBits) {
+    var rem = value;
+    var genBitLength = checkBits + 1;
+    for (var i = genBitLength + checkBits - 1; i >= checkBits; i--) {
+      if (rem & (1 << i)) rem ^= generator << (i - checkBits);
+    }
+    return rem & ((1 << checkBits) - 1);
+  }
+
+  // Format information: 5 data bits (2 for EC level, 3 for mask) protected by
+  // a (15,5) BCH code with generator 0x537, then XORed with the fixed mask
+  // 0x5412 so that an all-zero format never produces an all-light area.
+  function __qrFormatBits(ecLevel, mask) {
+    var data = (__qrEcFormatBits[ecLevel] << 3) | mask;       // 5 bits
+    var rem = __qrBchRemainder(data << 10, 0x537, 10);
+    return ((data << 10) | rem) ^ 0x5412;                      // 15 bits
+  }
+
+  // Version information (only present from version 7 up): 6 data bits
+  // protected by an (18,6) BCH code with generator 0x1f25. No XOR mask.
+  function __qrVersionBits(version) {
+    var rem = __qrBchRemainder(version << 12, 0x1f25, 12);
+    return (version << 12) | rem;                              // 18 bits
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 1.4 Helpers
+   * ------------------------------------------------------------------------ */
+
+  // Encode a JavaScript string as UTF-8 bytes.
+  // QR byte mode carries raw bytes, so Thai (or any non-ASCII) text just works
+  // as long as we hand it the UTF-8 encoding. TextEncoder exists in browsers
+  // and in Node 11+, but we keep a manual fallback so the file stays portable.
+  function __qrUtf8Bytes(text) {
+    if (typeof TextEncoder === 'function') {
+      return new TextEncoder().encode(String(text));
+    }
+    var str = String(text);
+    var out = [];
+    for (var i = 0; i < str.length; i++) {
+      var cp = str.codePointAt(i);
+      if (cp > 0xffff) i++; // surrogate pair consumed
+      if (cp < 0x80) {
+        out.push(cp);
+      } else if (cp < 0x800) {
+        out.push(0xc0 | (cp >> 6), 0x80 | (cp & 0x3f));
+      } else if (cp < 0x10000) {
+        out.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 0x3f), 0x80 | (cp & 0x3f));
+      } else {
+        out.push(
+          0xf0 | (cp >> 18),
+          0x80 | ((cp >> 12) & 0x3f),
+          0x80 | ((cp >> 6) & 0x3f),
+          0x80 | (cp & 0x3f)
+        );
+      }
+    }
+    return new Uint8Array(out);
+  }
+
+  // Number of bits in the byte-mode character count indicator.
+  function __qrCountBits(version) {
+    return version <= 9 ? 8 : 16;
+  }
+
+  // Total data codewords available at a version / EC level combination.
+  function __qrDataCodewords(version, ecLevel) {
+    var spec = __qrEcTable[ecLevel][version];
+    var total = spec[1] * spec[2];
+    if (spec.length > 3) total += spec[3] * spec[4];
+    return total;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 1.5 Bit buffer
+   * ------------------------------------------------------------------------ */
+
+  function __qrBitBuffer() {
+    this.bits = [];
+  }
+  __qrBitBuffer.prototype.push = function (value, length) {
+    for (var i = length - 1; i >= 0; i--) {
+      this.bits.push((value >>> i) & 1);
+    }
+  };
+  __qrBitBuffer.prototype.pushByte = function (byte) {
+    this.push(byte, 8);
+  };
+  __qrBitBuffer.prototype.toCodewords = function (count) {
+    var out = new Uint8Array(count);
+    for (var i = 0; i < this.bits.length; i++) {
+      if (this.bits[i]) out[i >>> 3] |= 0x80 >>> (i & 7);
+    }
+    return out;
+  };
+
+  /* ---------------------------------------------------------------------------
+   * 1.6 Data encoding: byte mode payload -> interleaved codeword stream
+   * ------------------------------------------------------------------------ */
+
+  function __qrBuildCodewords(bytes, version, ecLevel) {
+    var dataCapacity = __qrDataCodewords(version, ecLevel);
+    var buf = new __qrBitBuffer();
+
+    buf.push(0x4, 4);                                 // mode indicator: byte mode
+    buf.push(bytes.length, __qrCountBits(version));   // character count
+    for (var i = 0; i < bytes.length; i++) buf.pushByte(bytes[i]);
+
+    // Terminator: up to four zero bits, truncated if the capacity is reached.
+    var capacityBits = dataCapacity * 8;
+    var terminator = Math.min(4, capacityBits - buf.bits.length);
+    buf.push(0, terminator);
+
+    // Pad with zeros to the next byte boundary.
+    while (buf.bits.length % 8 !== 0) buf.bits.push(0);
+
+    // Then alternate the two fixed pad codewords 0xEC / 0x11 until full.
+    var padToggle = true;
+    while (buf.bits.length < capacityBits) {
+      buf.pushByte(padToggle ? 0xec : 0x11);
+      padToggle = !padToggle;
+    }
+
+    var dataCodewords = buf.toCodewords(dataCapacity);
+
+    // Split into blocks, compute EC per block, then interleave.
+    var spec = __qrEcTable[ecLevel][version];
+    var ecPerBlock = spec[0];
+    var groups = [[spec[1], spec[2]]];
+    if (spec.length > 3) groups.push([spec[3], spec[4]]);
+
+    var dataBlocks = [];
+    var ecBlocks = [];
+    var offset = 0;
+    for (var g = 0; g < groups.length; g++) {
+      for (var b = 0; b < groups[g][0]; b++) {
+        var block = dataCodewords.subarray(offset, offset + groups[g][1]);
+        offset += groups[g][1];
+        dataBlocks.push(block);
+        ecBlocks.push(__qrRsRemainder(block, ecPerBlock));
+      }
+    }
+
+    // Interleaving: take codeword 0 of every block, then codeword 1 of every
+    // block, and so on. Shorter blocks simply run out early and are skipped.
+    var result = new Uint8Array(__qrTotalCodewords[version]);
+    var pos = 0;
+    var longestData = 0;
+    for (var d = 0; d < dataBlocks.length; d++) {
+      if (dataBlocks[d].length > longestData) longestData = dataBlocks[d].length;
+    }
+    for (var i2 = 0; i2 < longestData; i2++) {
+      for (var j = 0; j < dataBlocks.length; j++) {
+        if (i2 < dataBlocks[j].length) result[pos++] = dataBlocks[j][i2];
+      }
+    }
+    for (var i3 = 0; i3 < ecPerBlock; i3++) {
+      for (var k = 0; k < ecBlocks.length; k++) result[pos++] = ecBlocks[k][i3];
+    }
+    return result;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 1.7 Matrix construction
+   * ------------------------------------------------------------------------ */
+
+  // A tiny matrix wrapper. Coordinates are (x = column, y = row).
+  // `isFunction` marks modules that belong to a function pattern and therefore
+  // must never carry data and must never be masked.
+  function __qrMatrix(size) {
+    this.size = size;
+    this.modules = new Uint8Array(size * size);
+    this.isFunction = new Uint8Array(size * size);
+  }
+  __qrMatrix.prototype.idx = function (x, y) {
+    return y * this.size + x;
+  };
+  __qrMatrix.prototype.get = function (x, y) {
+    return this.modules[y * this.size + x];
+  };
+  __qrMatrix.prototype.set = function (x, y, dark) {
+    this.modules[y * this.size + x] = dark ? 1 : 0;
+  };
+  __qrMatrix.prototype.setFunction = function (x, y, dark) {
+    this.modules[y * this.size + x] = dark ? 1 : 0;
+    this.isFunction[y * this.size + x] = 1;
+  };
+
+  function __qrDrawFinder(m, cx, cy) {
+    // A 9x9 region: concentric rings at Chebyshev distance 0..4 from the
+    // centre. Distance 0,1,3 are dark; distance 2 and 4 (the separator) light.
+    for (var dy = -4; dy <= 4; dy++) {
+      for (var dx = -4; dx <= 4; dx++) {
+        var x = cx + dx, y = cy + dy;
+        if (x < 0 || y < 0 || x >= m.size || y >= m.size) continue;
+        var dist = Math.max(Math.abs(dx), Math.abs(dy));
+        m.setFunction(x, y, dist !== 2 && dist !== 4);
+      }
+    }
+  }
+
+  function __qrDrawAlignment(m, cx, cy) {
+    // 5x5: dark centre, light ring, dark outer ring.
+    for (var dy = -2; dy <= 2; dy++) {
+      for (var dx = -2; dx <= 2; dx++) {
+        m.setFunction(cx + dx, cy + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+      }
+    }
+  }
+
+  function __qrDrawFunctionPatterns(m, version, ecLevel) {
+    var size = m.size;
+
+    // Timing patterns: alternating dark/light along row 6 and column 6.
+    for (var i = 0; i < size; i++) {
+      m.setFunction(6, i, i % 2 === 0);
+      m.setFunction(i, 6, i % 2 === 0);
+    }
+
+    // Three finder patterns with their separators.
+    __qrDrawFinder(m, 3, 3);
+    __qrDrawFinder(m, size - 4, 3);
+    __qrDrawFinder(m, 3, size - 4);
+
+    // Alignment patterns at every pair of centres, except the three pairs that
+    // overlap the finder patterns (first/first, first/last, last/first).
+    var centres = __qrAlignmentCentres[version];
+    var n = centres.length;
+    for (var a = 0; a < n; a++) {
+      for (var b = 0; b < n; b++) {
+        var skip = (a === 0 && b === 0) || (a === 0 && b === n - 1) || (a === n - 1 && b === 0);
+        if (!skip) __qrDrawAlignment(m, centres[a], centres[b]);
+      }
+    }
+
+    // Reserve the format information area with a placeholder (mask 0); the real
+    // bits are written once the best mask is known.
+    __qrDrawFormatInfo(m, ecLevel, 0);
+
+    // Version information, two 3x6 blocks, only from version 7 up.
+    if (version >= 7) {
+      var vbits = __qrVersionBits(version);
+      for (var k = 0; k < 18; k++) {
+        var bit = (vbits >>> k) & 1;
+        var p = size - 11 + (k % 3);
+        var q = Math.floor(k / 3);
+        m.setFunction(p, q, bit);   // block near the top-right finder
+        m.setFunction(q, p, bit);   // block near the bottom-left finder
+      }
+    }
+  }
+
+  function __qrDrawFormatInfo(m, ecLevel, mask) {
+    var bits = __qrFormatBits(ecLevel, mask);
+    var size = m.size;
+    var i;
+
+    // First copy: an L shape hugging the top-left finder pattern.
+    for (i = 0; i <= 5; i++) m.setFunction(8, i, (bits >>> i) & 1);
+    m.setFunction(8, 7, (bits >>> 6) & 1);
+    m.setFunction(8, 8, (bits >>> 7) & 1);
+    m.setFunction(7, 8, (bits >>> 8) & 1);
+    for (i = 9; i < 15; i++) m.setFunction(14 - i, 8, (bits >>> i) & 1);
+
+    // Second copy: split between the bottom-left and top-right finders.
+    for (i = 0; i < 8; i++) m.setFunction(size - 1 - i, 8, (bits >>> i) & 1);
+    for (i = 8; i < 15; i++) m.setFunction(8, size - 15 + i, (bits >>> i) & 1);
+
+    // The "dark module" - always 1, regardless of version or EC level.
+    m.setFunction(8, size - 8, 1);
+  }
+
+  // Place the codeword bit stream into the matrix.
+  // The path is two-module-wide columns walked from the right edge leftwards,
+  // alternating upward and downward, skipping the vertical timing column 6.
+  // Function modules are stepped over. Any modules left after the data runs
+  // out stay light - these are the spec's "remainder bits", which are zero.
+  function __qrPlaceCodewords(m, codewords) {
+    var size = m.size;
+    var bitIndex = 0;
+    var totalBits = codewords.length * 8;
+
+    for (var right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right = 5; // the timing column is not part of the path
+      for (var vert = 0; vert < size; vert++) {
+        for (var j = 0; j < 2; j++) {
+          var x = right - j;
+          var upward = ((right + 1) & 2) === 0;
+          var y = upward ? size - 1 - vert : vert;
+          if (m.isFunction[m.idx(x, y)]) continue;
+          if (bitIndex < totalBits) {
+            var bit = (codewords[bitIndex >>> 3] >>> (7 - (bitIndex & 7))) & 1;
+            m.set(x, y, bit);
+            bitIndex++;
+          }
+        }
+      }
+    }
+    return bitIndex;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 1.8 Masking
+   * ------------------------------------------------------------------------ */
+
+  // The eight standard data mask conditions. Each returns true when the module
+  // at (x = column, y = row) must be inverted.
+  var __qrMaskFns = [
+    function (x, y) { return (x + y) % 2 === 0; },
+    function (x, y) { return y % 2 === 0; },
+    function (x, y) { return x % 3 === 0; },
+    function (x, y) { return (x + y) % 3 === 0; },
+    function (x, y) { return (Math.floor(y / 2) + Math.floor(x / 3)) % 2 === 0; },
+    function (x, y) { return ((x * y) % 2) + ((x * y) % 3) === 0; },
+    function (x, y) { return (((x * y) % 2) + ((x * y) % 3)) % 2 === 0; },
+    function (x, y) { return (((x + y) % 2) + ((x * y) % 3)) % 2 === 0; }
+  ];
+
+  // Apply (or, because XOR is its own inverse, un-apply) a mask to every
+  // non-function module.
+  function __qrApplyMask(m, mask) {
+    var fn = __qrMaskFns[mask];
+    for (var y = 0; y < m.size; y++) {
+      for (var x = 0; x < m.size; x++) {
+        var i = m.idx(x, y);
+        if (m.isFunction[i]) continue;
+        if (fn(x, y)) m.modules[i] ^= 1;
+      }
+    }
+  }
+
+  // The four penalty rules of ISO/IEC 18004 clause 7.8.3.1. Lower is better.
+  //
+  //   Rule 1  Runs of 5 or more same-coloured modules in a row or column:
+  //           3 points for the first 5, +1 for every extra module.
+  //   Rule 2  Every 2x2 block of one colour: 3 points.
+  //   Rule 3  The 1:1:3:1:1 finder-like pattern (dark-light-dark*3-light-dark)
+  //           with four light modules on either side: 40 points each.
+  //   Rule 4  Deviation of the dark-module proportion from 50%:
+  //           10 points for every full 5% away from half.
+  function __qrPenalty(m) {
+    var size = m.size;
+    var score = 0;
+    var x, y, run, runColour;
+
+    // ---- Rule 1, horizontal and vertical runs -----------------------------
+    for (y = 0; y < size; y++) {
+      run = 1; runColour = m.get(0, y);
+      for (x = 1; x < size; x++) {
+        var c = m.get(x, y);
+        if (c === runColour) {
+          run++;
+        } else {
+          if (run >= 5) score += 3 + (run - 5);
+          run = 1; runColour = c;
+        }
+      }
+      if (run >= 5) score += 3 + (run - 5);
+    }
+    for (x = 0; x < size; x++) {
+      run = 1; runColour = m.get(x, 0);
+      for (y = 1; y < size; y++) {
+        var c2 = m.get(x, y);
+        if (c2 === runColour) {
+          run++;
+        } else {
+          if (run >= 5) score += 3 + (run - 5);
+          run = 1; runColour = c2;
+        }
+      }
+      if (run >= 5) score += 3 + (run - 5);
+    }
+
+    // ---- Rule 2, 2x2 same-colour blocks -----------------------------------
+    // Counting every 2x2 window gives the standard score: an NxM solid area
+    // contributes 3*(N-1)*(M-1), which is exactly what the spec intends.
+    for (y = 0; y < size - 1; y++) {
+      for (x = 0; x < size - 1; x++) {
+        var v = m.get(x, y);
+        if (v === m.get(x + 1, y) && v === m.get(x, y + 1) && v === m.get(x + 1, y + 1)) {
+          score += 3;
+        }
+      }
+    }
+
+    // ---- Rule 3, finder-like 1:1:3:1:1 patterns ---------------------------
+    // Written out as the two literal 11-module sequences the spec describes:
+    // the 1:1:3:1:1 core with the 4-module light margin before or after it.
+    var patA = [1, 0, 1, 1, 1, 0, 1, 0, 0, 0, 0]; // core then light margin
+    var patB = [0, 0, 0, 0, 1, 0, 1, 1, 1, 0, 1]; // light margin then core
+    function matchesAt(getter, start) {
+      var a = true, b = true;
+      for (var k = 0; k < 11; k++) {
+        var val = getter(start + k);
+        if (val !== patA[k]) a = false;
+        if (val !== patB[k]) b = false;
+        if (!a && !b) return 0;
+      }
+      return (a ? 1 : 0) + (b ? 1 : 0);
+    }
+    for (y = 0; y < size; y++) {
+      var rowAt = (function (yy) {
+        return function (xx) { return m.get(xx, yy); };
+      }(y));
+      for (x = 0; x + 11 <= size; x++) score += 40 * matchesAt(rowAt, x);
+    }
+    for (x = 0; x < size; x++) {
+      var colAt = (function (xx) {
+        return function (yy) { return m.get(xx, yy); };
+      }(x));
+      for (y = 0; y + 11 <= size; y++) score += 40 * matchesAt(colAt, y);
+    }
+
+    // ---- Rule 4, dark/light balance ---------------------------------------
+    var dark = 0;
+    for (var i = 0; i < m.modules.length; i++) dark += m.modules[i];
+    var total = size * size;
+    // How many whole 5% steps the dark proportion sits away from 50%.
+    var steps = Math.floor(Math.abs(dark * 20 - total * 10) / total);
+    score += steps * 10;
+
+    return score;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 1.9 Public QR entry point
+   * ------------------------------------------------------------------------ */
+
+  /**
+   * Encode text as a QR Code symbol in byte mode.
+   *
+   * @param {string} text     Payload. Encoded as UTF-8 bytes, so Thai works.
+   * @param {string} ecLevel  'L', 'M', 'Q' or 'H'.
+   * @returns {{version:number, ecLevel:string, mask:number, size:number,
+   *            modules:Uint8Array}}
+   *          `modules` is row-major, length size*size, 1 = dark, 0 = light.
+   *          No quiet zone is included.
+   */
+  function qrEncode(text, ecLevel) {
+    if (text === undefined || text === null) {
+      throw new Error('qrEncode: text is required');
+    }
+    var level = String(ecLevel === undefined ? 'M' : ecLevel).toUpperCase();
+    if (!__qrEcTable[level]) {
+      throw new Error('qrEncode: ecLevel must be one of L, M, Q, H (got "' + ecLevel + '")');
+    }
+
+    var bytes = __qrUtf8Bytes(text);
+
+    // Pick the smallest version that can hold mode + count + payload.
+    var version = -1;
+    for (var v = 1; v <= __qrMaxVersion; v++) {
+      var availableBits = __qrDataCodewords(v, level) * 8;
+      var neededBits = 4 + __qrCountBits(v) + bytes.length * 8;
+      if (neededBits <= availableBits) { version = v; break; }
+    }
+    if (version < 0) {
+      var cap20 = Math.floor((__qrDataCodewords(__qrMaxVersion, level) * 8 - 4 - 16) / 8);
+      throw new Error(
+        'qrEncode: payload of ' + bytes.length + ' UTF-8 bytes does not fit in ' +
+        'QR version ' + __qrMaxVersion + ' at EC level ' + level +
+        ' (maximum ' + cap20 + ' bytes). Use a lower EC level or shorter text.'
+      );
+    }
+
+    var size = version * 4 + 17;
+    var codewords = __qrBuildCodewords(bytes, version, level);
+
+    var m = new __qrMatrix(size);
+    __qrDrawFunctionPatterns(m, version, level);
+    __qrPlaceCodewords(m, codewords);
+
+    // Try all eight masks, keep the one with the lowest penalty.
+    // The format information depends on the mask, so it is rewritten each time
+    // before scoring - its modules affect rules 1, 2 and 4.
+    var bestMask = 0;
+    var bestScore = Infinity;
+    for (var mask = 0; mask < 8; mask++) {
+      __qrDrawFormatInfo(m, level, mask);
+      __qrApplyMask(m, mask);
+      var score = __qrPenalty(m);
+      __qrApplyMask(m, mask); // XOR again to undo
+      if (score < bestScore) { bestScore = score; bestMask = mask; }
+    }
+
+    __qrDrawFormatInfo(m, level, bestMask);
+    __qrApplyMask(m, bestMask);
+
+    return {
+      version: version,
+      ecLevel: level,
+      mask: bestMask,
+      size: size,
+      modules: m.modules
+    };
+  }
+
+  /* ===========================================================================
+   * SECTION 2 - EAN-13
+   * ======================================================================== */
+
+  /* ---------------------------------------------------------------------------
+   * 2.1 The three symbol sets
+   * ------------------------------------------------------------------------ */
+
+  // EAN-13 encodes each digit as 7 modules. Three alphabets are used:
+  //
+  //   L (set A) - left half, odd parity  (an odd number of dark modules)
+  //   G (set B) - left half, even parity (a mirror of R, read right-to-left)
+  //   R (set C) - right half, even parity (the bitwise complement of L)
+  //
+  // Having two left-hand alphabets is what lets the 13th digit be carried
+  // without any extra bars: the first digit is encoded purely in the *choice*
+  // of L/G per position (see __eanParity below). It also makes the symbol
+  // direction-detectable, since L starts with a light module and R with a dark.
+  var __eanL = [
+    '0001101', '0011001', '0010011', '0111101', '0100011',
+    '0110001', '0101111', '0111011', '0110111', '0001011'
+  ];
+  var __eanG = [
+    '0100111', '0110011', '0011011', '0100001', '0011101',
+    '0111001', '0000101', '0010001', '0001001', '0010111'
+  ];
+  var __eanR = [
+    '1110010', '1100110', '1101100', '1000010', '1011100',
+    '1001110', '1010000', '1000100', '1001000', '1110100'
+  ];
+
+  // Which alphabet each of the six left-half digits uses, selected by the
+  // leading (13th) digit. 'L' = set A, 'G' = set B.
+  var __eanParity = [
+    'LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG',
+    'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL'
+  ];
+
+  var __eanGuardStart = '101';
+  var __eanGuardCentre = '01010';
+  var __eanGuardEnd = '101';
+
+  /* ---------------------------------------------------------------------------
+   * 2.2 Check digit
+   * ------------------------------------------------------------------------ */
+
+  // Modulo-10 check digit: weight the first twelve digits 1,3,1,3,... from the
+  // left, sum, and take whatever brings the total up to a multiple of ten.
+  function __eanCheckDigit(first12) {
+    var sum = 0;
+    for (var i = 0; i < 12; i++) {
+      var d = first12.charCodeAt(i) - 48;
+      sum += (i % 2 === 0) ? d : d * 3;
+    }
+    return (10 - (sum % 10)) % 10;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 2.3 Public EAN-13 entry point
+   * ------------------------------------------------------------------------ */
+
+  /**
+   * Encode an EAN-13 barcode.
+   *
+   * @param {string} digits  12 digits (check digit is computed) or 13 digits
+   *                         (check digit is verified).
+   * @returns {{code:string, bits:string}}
+   *          `code` is the full 13-digit number.
+   *          `bits` is 95 characters of '0'/'1', left guard to right guard,
+   *          where '1' = dark bar.
+   */
+  function ean13Encode(digits) {
+    var s = String(digits === undefined || digits === null ? '' : digits).trim();
+
+    if (!/^[0-9]+$/.test(s)) {
+      throw new Error('ean13Encode: input must contain digits only (got "' + s + '")');
+    }
+    if (s.length !== 12 && s.length !== 13) {
+      throw new Error(
+        'ean13Encode: input must be 12 digits (check digit computed) or ' +
+        '13 digits (check digit verified), got ' + s.length + ' digits'
+      );
+    }
+
+    var code;
+    if (s.length === 12) {
+      code = s + String(__eanCheckDigit(s));
+    } else {
+      var expected = __eanCheckDigit(s.slice(0, 12));
+      var given = s.charCodeAt(12) - 48;
+      if (expected !== given) {
+        throw new Error(
+          'ean13Encode: check digit mismatch for "' + s + '" - expected ' +
+          expected + ' but got ' + given
+        );
+      }
+      code = s;
+    }
+
+    var lead = code.charCodeAt(0) - 48;
+    var parity = __eanParity[lead];
+
+    var bits = __eanGuardStart;
+    // Left half: digits 2..7 of the code, alphabet chosen by the parity table.
+    for (var i = 0; i < 6; i++) {
+      var d = code.charCodeAt(1 + i) - 48;
+      bits += (parity.charAt(i) === 'L') ? __eanL[d] : __eanG[d];
+    }
+    bits += __eanGuardCentre;
+    // Right half: digits 8..13, always alphabet R.
+    for (var j = 0; j < 6; j++) {
+      bits += __eanR[code.charCodeAt(7 + j) - 48];
+    }
+    bits += __eanGuardEnd;
+
+    // 3 + 6*7 + 5 + 6*7 + 3 = 95. Guard against a table typo.
+    if (bits.length !== 95) {
+      throw new Error('ean13Encode: internal error, produced ' + bits.length + ' bits');
+    }
+
+    return { code: code, bits: bits };
+  }
+
+  /* ===========================================================================
+   * Exports - exactly two globals.
+   * ======================================================================== */
+
+  global.qrEncode = qrEncode;
+  global.ean13Encode = ean13Encode;
+
+}(typeof globalThis !== 'undefined' ? globalThis : this));
+
+/* ---------------- codes & markers ----------------
+   ArUco and QR are read by OpenCV's own detectors and round-trip cleanly at
+   any size. The barcode detector is different: it looks at edge gradients, so
+   a pixel-perfect render straight out of this page often will not decode until
+   it is softened slightly - which is exactly what a real camera does to it.
+   That is a property of the detector, not of the code we draw, and it is why
+   the "soften" option exists. Measured, not assumed. */
+let LAST_CODE_URL=null;      // data URL of the last generated code, for download / reuse
+let LAST_CODE_NAME='code.png';
+
+function quietBorder(m, pad){
+  const o=new cv.Mat();
+  cv.copyMakeBorder(m,o,pad,pad,pad,pad,cv.BORDER_CONSTANT,new cv.Scalar(255,255,255,255));
+  return o;
+}
+
+function makeAruco(Z){
+  const dict=cv.getPredefinedDictionary(Z.dict);
+  const side=Math.max(40,Z.px);
+  const m=new cv.Mat();
+  cv.generateImageMarker(dict,Z.id,side,m,Z.border);
+  // the white quiet zone is part of the marker: without it the detector cannot
+  // find the outer black square at all
+  const o=quietBorder(m,Math.round(side*0.18));
+  m.delete();
+  LAST_CODE_NAME='aruco_'+(DICT_NAME[Z.dict]||'dict')+'_id'+Z.id+'.png';
+  return [o, (DICT_NAME[Z.dict]||'ArUco')+'  id '+Z.id, 'ArUco', String(Z.id)];
+}
+
+function makeQr(Z){
+  const q=qrEncode(Z.text,Z.ec);                 // throws with a readable message if it will not fit
+  const base=new cv.Mat(q.size,q.size,cv.CV_8UC1);
+  for(let y=0;y<q.size;y++)
+    for(let x=0;x<q.size;x++)
+      base.ucharPtr(y,x)[0]=q.modules[y*q.size+x]?0:255;
+  const k=Math.max(1,Math.floor(Z.px/q.size));
+  const big=new cv.Mat();
+  cv.resize(base,big,new cv.Size(q.size*k,q.size*k),0,0,cv.INTER_NEAREST);
+  base.delete();
+  const o=quietBorder(big,4*k);                  // the standard QR quiet zone is 4 modules
+  big.delete();
+  LAST_CODE_NAME='qr_'+Z.ec+'.png';
+  return [o,'QR  version '+q.version+'  level '+Z.ec+'  ('+q.size+'x'+q.size+' modules)','QR',Z.text];
+}
+
+function makeEan(Z){
+  const e=ean13Encode(Z.digits);                 // throws on bad input
+  // OpenCV reads thin bars far more reliably than thick ones, so the module
+  // width is deliberately held to 2-4 px no matter how large the export is.
+  const module=Math.min(4,Math.max(2,Math.round(Z.px/115)));
+  const quiet=10, W=(95+2*quiet)*module, barh=Math.max(90,Math.round(W*0.42));
+  const m=new cv.Mat(barh,W,cv.CV_8UC1,new cv.Scalar(255));
+  for(let i=0;i<e.bits.length;i++){
+    if(e.bits.charAt(i)!=='1') continue;
+    const x0=(quiet+i)*module;
+    for(let x=x0;x<x0+module;x++)
+      for(let y=0;y<barh;y++) m.ucharPtr(y,x)[0]=0;
+  }
+  const o=quietBorder(m,Math.round(module*8));
+  m.delete();
+  LAST_CODE_NAME='ean13_'+e.code+'.png';
+  return [o,'EAN-13  '+e.code+'   (module '+module+' px)','EAN_13',e.code];
+}
+
+function stashCode(rgba){
+  try{
+    const c=document.createElement('canvas');
+    cv.imshow(c,rgba);
+    LAST_CODE_URL=c.toDataURL('image/png');
+  }catch(e){ LAST_CODE_URL=null; }
+}
+
+function runCodes(src,Z){
+  const th=Math.max(2,Math.round(src.cols/400));
+
+  /* ---------- make a code ---------- */
+  if(Z.mode==='make'){
+    let built=null;
+    try{
+      built = Z.type==='aruco' ? makeAruco(Z) : (Z.type==='qr' ? makeQr(Z) : makeEan(Z));
+      $('z_err').classList.add('hidden');
+    }catch(e){
+      $('z_err').textContent=(e&&e.message)?e.message:String(e);
+      $('z_err').classList.remove('hidden');
+      LAST_CODE_URL=null;
+      return null;
+    }
+    const [gray,caption,kind,value]=built;
+    const dst=new cv.Mat();
+    cv.cvtColor(gray,dst,cv.COLOR_GRAY2RGBA);
+    gray.delete();
+    stashCode(dst);
+    OVERLAYS.push({x:12,y:29,size:16,bold:true,bar:[0,44],text:caption});
+    return [dst,1,{head:['#','type','value','w','h'],
+                   rows:[[1,kind,value,dst.cols,dst.rows]]}];
+  }
+
+  /* ---------- read codes ---------- */
+  const dst=src.clone(), gray=new cv.Mat();
+  cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
+  const rows=[]; let n=0; const found=[];
+  let mmPerPx=null;
+
+  const quad=(pts,color)=>{
+    for(let i=0;i<4;i++){
+      const a=new cv.Point(Math.round(pts[i*2]),Math.round(pts[i*2+1]));
+      const b=new cv.Point(Math.round(pts[((i+1)%4)*2]),Math.round(pts[((i+1)%4)*2+1]));
+      cv.line(dst,a,b,color,th);
+    }
+  };
+  const put=(txt,x,y,color)=>{
+    if(!Z.label) return;
+    cv.putText(dst,txt,new cv.Point(Math.round(x),Math.max(14,Math.round(y)-8)),
+      cv.FONT_HERSHEY_SIMPLEX,0.6,color,Math.max(1,th-1),cv.LINE_AA);
+  };
+
+  // ---- ArUco ----
+  if(Z.aruco && typeof cv.getPredefinedDictionary==='function'){
+    let dict=null,dp=null,rp=null,det=null,corners=null,ids=null,rej=null;
+    try{
+      dict=cv.getPredefinedDictionary(Z.dict);
+      dp=new cv.aruco_DetectorParameters();
+      rp=new cv.aruco_RefineParameters(10,3,true);
+      det=new cv.aruco_ArucoDetector(dict,dp,rp);
+      corners=new cv.MatVector(); ids=new cv.Mat(); rej=new cv.MatVector();
+      det.detectMarkers(gray,corners,ids,rej);
+      const sides=[];
+      for(let i=0;i<ids.rows;i++){
+        const id=ids.data32S[i], c=corners.get(i), p=c.data32F;
+        quad(p,new cv.Scalar(...GOLD));
+        if(Z.corner) for(let k=0;k<4;k++) cv.circle(dst,new cv.Point(Math.round(p[k*2]),Math.round(p[k*2+1])),th+2,new cv.Scalar(...CRIM),-1);
+        const cx=(p[0]+p[2]+p[4]+p[6])/4, cy=(p[1]+p[3]+p[5]+p[7])/4;
+        // side length = mean of the four edges, which is what --size means on a print
+        let s=0; for(let k=0;k<4;k++){ const dx=p[((k+1)%4)*2]-p[k*2], dy=p[((k+1)%4)*2+1]-p[k*2+1]; s+=Math.hypot(dx,dy); }
+        s/=4; sides.push(s);
+        put('id '+id,p[0],p[1],new cv.Scalar(...GOLD));
+        n++; rows.push([n,'ArUco',id,Math.round(cx),Math.round(cy),Math.round(s)]);
+      }
+      if(Z.mm>0 && sides.length){
+        sides.sort((a,b)=>a-b);
+        const med=sides[Math.floor(sides.length/2)];
+        if(med>1) mmPerPx=Z.mm/med;
+      }
+      found.push('ArUco '+ids.rows);
+    }catch(e){
+      found.push('ArUco n/a');
+      OVERLAYS.push({x:14,y:52,size:13,color:'rgb(230,120,130)',
+        text:(LANG==='en'?'ArUco failed: ':'ArUco อ่านไม่ได้: ')+String(e&&e.message||e).slice(0,70)});
+    }finally{
+      [corners,ids,rej,det,dp,rp,dict].forEach(o=>{ try{ o&&o.delete&&o.delete(); }catch(e){} });
+    }
+  }
+
+  // ---- QR ----
+  if(Z.qr && typeof cv.QRCodeDetector==='function'){
+    let qd=null,pts=null;
+    try{
+      qd=new cv.QRCodeDetector(); pts=new cv.Mat();
+      const text=qd.detectAndDecode(gray,pts);
+      if(pts.rows*pts.cols>=4 && text!==''){
+        const p=pts.data32F;
+        quad(p,new cv.Scalar(...CRIM));
+        // the payload may be Thai and cv.putText has no Thai glyphs, so only an
+        // ASCII-safe stub goes on the image - the full text is in the table
+        put('QR',p[0],p[1],new cv.Scalar(...CRIM));
+        n++; rows.push([n,'QR',text,Math.round((p[0]+p[4])/2),Math.round((p[1]+p[5])/2),'']);
+      }
+      found.push('QR '+(text?1:0));
+    }catch(e){ found.push('QR n/a'); }
+    finally{ [qd,pts].forEach(o=>{ try{ o&&o.delete&&o.delete(); }catch(e){} }); }
+  }
+
+  // ---- barcode ----
+  if(Z.bar && typeof cv.barcode_BarcodeDetector==='function'){
+    let bd=null,inf=null,typ=null,pts=null,soft=null;
+    try{
+      bd=new cv.barcode_BarcodeDetector();
+      inf=new cv.StringVector(); typ=new cv.StringVector(); pts=new cv.Mat();
+      // Measured, not guessed: on a crisp render this detector finds the bars
+      // with a 3x3 blur but still fails to DECODE them. 5x5 decodes; 7x7 is the
+      // fallback for thicker bars. A photographed code usually needs neither.
+      const attempts = Z.soft ? [5,7] : [0];
+      let decoded=false;
+      for(let a=0; a<attempts.length && !decoded; a++){
+        const k=attempts[a];
+        let input=gray;
+        if(k){ if(soft) soft.delete(); soft=new cv.Mat();
+               cv.GaussianBlur(gray,soft,new cv.Size(k,k),0,0,cv.BORDER_DEFAULT); input=soft; }
+        inf.delete(); typ.delete(); pts.delete();
+        inf=new cv.StringVector(); typ=new cv.StringVector(); pts=new cv.Mat();
+        bd.detectAndDecodeWithType(input,inf,typ,pts);
+        for(let i=0;i<inf.size();i++) if(inf.get(i)) decoded=true;
+      }
+      for(let i=0;i<inf.size();i++){
+        const v=inf.get(i), t=typ.get(i);
+        if(!v) continue;
+        if(pts.rows*pts.cols>=4*(i+1)){
+          const p=pts.data32F.subarray(i*8,i*8+8);
+          quad(p,new cv.Scalar(120,200,140,255));
+          put(t,p[0],p[1],new cv.Scalar(120,200,140,255));
+          n++; rows.push([n,t,v,Math.round((p[0]+p[4])/2),Math.round((p[1]+p[5])/2),'']);
+        }else{
+          n++; rows.push([n,t,v,'','','']);
+        }
+      }
+      found.push('Barcode '+inf.size());
+    }catch(e){ found.push('Barcode n/a'); }
+    finally{ [bd,inf,typ,pts,soft].forEach(o=>{ try{ o&&o.delete&&o.delete(); }catch(e){} }); }
+  }
+
+  let badge=(LANG==='en'?'Codes: ':'อ่านได้: ')+n;
+  if(mmPerPx) badge+='   '+mmPerPx.toFixed(3)+' mm/px';
+  OVERLAYS.push({x:12,y:29,size:16,bold:true,bar:[0,44],text:badge});
+  if(n===0) OVERLAYS.push({x:12,y:62,size:13,color:'rgb(154,163,174)',
+    text:LANG==='en'?'Nothing read. Check the dictionary matches the print, and that the white margin is intact.'
+                    :'ยังอ่านไม่เจอ — เช็กว่าเลือก dictionary ตรงกับที่พิมพ์ และขอบขาวรอบโค้ดยังอยู่ครบ'});
+  gray.delete();
+  return [dst,n,{head:['#','type','value','x','y','size'],rows:rows}];
+}
+
 function fillTable(data){
   const t=$('objTable');
   if(!data||!data.head.length||!data.rows.length){
@@ -2147,7 +3357,7 @@ $('canvasResult').addEventListener('click',e=>{
   if(TAB!=='color'&&TAB!=='haar'){
     TAB='color';
     document.querySelectorAll('.tab').forEach(x2=>x2.classList.toggle('on',x2.dataset.tab==='color'));
-    ['circle','color','pre','line','draw','haar','face'].forEach(p2=>$('pane-'+p2).classList.toggle('hidden',p2!=='color'));
+    ['circle','color','pre','line','draw','haar','face','codes'].forEach(p2=>$('pane-'+p2).classList.toggle('hidden',p2!=='color'));
   }
   syncLabels(); render();
 });
@@ -2647,7 +3857,7 @@ function scaleBlock(P){
 function fileNameFor(){
   return {circle:'circle_detection.py',color:'color_detection.py',pre:'image_preprocess.py',
           line:'line_detection.py',draw:'draw_shapes.py',haar:'haar_detection.py',
-          face:'face_recognition_lbph.py'}[TAB];
+          face:'face_recognition_lbph.py',codes:'codes_and_markers.py'}[TAB];
 }
 
 function codeCircle(P){
@@ -3794,6 +5004,279 @@ function codeHaar(P){
   return o.join('\n');
 }
 
+function codeCodesNotes(Z){
+  const n=[L('dictionary ต้องตรงกับที่พิมพ์เป๊ะ ๆ ถ้าเลือกคนละชุด จะอ่านไม่เจอเลยแม้มาร์กเกอร์จะคมชัดมาก',
+             'The dictionary must match the printed markers exactly. A mismatch reads nothing at all, even from a perfectly sharp marker.')];
+  if(Z.bar) n.push(L('ตัวอ่านบาร์โค้ดของ OpenCV ดูการไล่ระดับของขอบ ภาพถ่ายจากกล้องอ่านได้ดี แต่ไฟล์ภาพที่คมเป๊ะมักต้องเบลอเล็กน้อยก่อน ตัวแปร SOFTEN_BARCODE ทำหน้าที่นั้น',
+    'OpenCV\'s barcode reader works on edge gradients. A photographed barcode reads well, but a pixel-perfect image file usually needs a slight blur first - that is what SOFTEN_BARCODE does.'));
+  if(Z.mm>0) n.push(L('MARKER_MM แปลงพิกเซลเป็นมิลลิเมตรได้ก็ต่อเมื่อมาร์กเกอร์วางราบและขนานกับเซนเซอร์ ถ้าเอียง ตัวเลขจะผิด',
+    'MARKER_MM converts pixels to millimetres only while the marker lies flat and parallel to the sensor. Tilt it and the number is wrong.'));
+  return n;
+}
+
+function codeCodesMake(P){
+  const G=P.gen, Z=P.codes;
+  const what={aruco:'ArUco marker',qr:'QR code',ean13:'EAN-13 barcode'}[Z.type];
+  const o=header('Codes & Markers - generate a '+what,G,
+    [L('สคริปต์นี้ "สร้าง" โค้ดไว้พิมพ์ ไม่ได้อ่านจากกล้อง ถ้าต้องการตัวอ่าน ให้สลับโหมดในหน้าเว็บเป็น "อ่านโค้ดจากภาพ"',
+       'This script GENERATES a code for printing - it does not read one. For a reader, switch the page back to reading mode.'),
+     L('เว้นขอบขาวรอบโค้ดไว้เสมอ ไม่มีขอบขาว = อ่านไม่ออก และอย่าพิมพ์ลงกระดาษเคลือบเงาเพราะแสงสะท้อน',
+       'Always keep the white margin around the code. No margin means no read. Avoid glossy paper - reflections defeat the camera.')],
+    {os:true});
+  o.push('# ---------- '+L('ค่าที่ตั้งไว้จากหน้าเว็บ','Values set on the page')+' ----------');
+  if(Z.type==='aruco'){
+    o.push('ARUCO_DICT = cv2.aruco.'+(DICT_NAME[Z.dict]||'DICT_4X4_50'));
+    o.push('MARKER_ID = '+Z.id);
+    o.push('BORDER_BITS = '+Z.border);
+  }else if(Z.type==='qr'){
+    o.push('QR_TEXT = "'+String(Z.text).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"');
+    o.push('# '+L('ระดับกู้คืนที่เลือกไว้คือ','Error-correction level chosen on the page:')+' '+Z.ec);
+    o.push('QR_CORRECTION = cv2.QRCodeEncoder_CORRECT_LEVEL_'+Z.ec);
+  }else{
+    o.push('EAN_DIGITS = "'+String(Z.digits).replace(/[^0-9]/g,'').slice(0,12)+'"   # '+L('12 หลัก ระบบเติมหลักตรวจสอบให้','12 digits, the check digit is added for you'));
+  }
+  o.push('SIZE_PX = '+Z.px);
+  o.push('OUTPUT = "'+LAST_CODE_NAME.replace(/"/g,'')+'"');
+  o.push('');
+  o.push('');
+  if(Z.type==='aruco'){
+    o.push('def make_marker(marker_id):');
+    o.push('    '+Q+L('วาดมาร์กเกอร์แล้วเติมขอบขาว ซึ่งเป็นส่วนหนึ่งของมาร์กเกอร์ ไม่ใช่การตกแต่ง',
+                      'Draw the marker, then add the white quiet zone - it is part of the marker, not decoration')+Q);
+    o.push('    dictionary = cv2.aruco.getPredefinedDictionary(ARUCO_DICT)');
+    o.push('    img = cv2.aruco.generateImageMarker(dictionary, marker_id, SIZE_PX, borderBits=BORDER_BITS)');
+    o.push('    pad = int(SIZE_PX * 0.18)');
+    o.push('    return cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)');
+    o.push('');
+    o.push('');
+    o.push('def make_sheet(first_id, count, columns=4):');
+    o.push('    '+Q+L('เรียงมาร์กเกอร์หลายตัวลงแผ่นเดียวเพื่อพิมพ์ทีเดียว','Tile several markers onto one printable sheet')+Q);
+    o.push('    tiles = [make_marker(first_id + i) for i in range(count)]');
+    o.push('    side = tiles[0].shape[0]');
+    o.push('    rows = (count + columns - 1) // columns');
+    o.push('    sheet = np.full((rows * side, columns * side), 255, np.uint8)');
+    o.push('    for i, tile in enumerate(tiles):');
+    o.push('        r, c = divmod(i, columns)');
+    o.push('        sheet[r * side:(r + 1) * side, c * side:(c + 1) * side] = tile');
+    o.push('        cv2.putText(sheet, str(first_id + i), (c * side + 8, r * side + side - 8),');
+    o.push('                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, 0, 2, cv2.LINE_AA)');
+    o.push('    return sheet');
+  }else if(Z.type==='qr'){
+    o.push('def make_qr():');
+    o.push('    '+Q+L('OpenCV มีตัวสร้าง QR ในตัว รองรับ UTF-8 จึงใส่ภาษาไทยได้',
+                      'OpenCV ships a QR encoder. It takes UTF-8, so Thai text works')+Q);
+    o.push('    params = cv2.QRCodeEncoder_Params()');
+    o.push('    params.correction_level = QR_CORRECTION');
+    o.push('    encoder = cv2.QRCodeEncoder.create(params)');
+    o.push('    small = encoder.encode(QR_TEXT)          # '+L('หนึ่งพิกเซลต่อหนึ่งช่อง','one pixel per module'));
+    o.push('    factor = max(1, SIZE_PX // small.shape[0])');
+    o.push('    big = cv2.resize(small, None, fx=factor, fy=factor, interpolation=cv2.INTER_NEAREST)');
+    o.push('    pad = 4 * factor                          # '+L('ขอบเงียบมาตรฐานของ QR คือ 4 ช่อง','the standard QR quiet zone is 4 modules'));
+    o.push('    return cv2.copyMakeBorder(big, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)');
+  }else{
+    o.push('# '+L('ตาราง EAN-13 สามชุด: ซ้าย-คี่ (L) ซ้าย-คู่ (G) และขวา (R)','The three EAN-13 tables: left-odd (L), left-even (G) and right (R)'));
+    o.push('EAN_L = ["0001101","0011001","0010011","0111101","0100011",');
+    o.push('         "0110001","0101111","0111011","0110111","0001011"]');
+    o.push('EAN_G = ["0100111","0110011","0011011","0100001","0011101",');
+    o.push('         "0111001","0000101","0010001","0001001","0010111"]');
+    o.push('EAN_R = ["1110010","1100110","1101100","1000010","1011100",');
+    o.push('         "1001110","1010000","1000100","1001000","1110100"]');
+    o.push('# '+L('หลักแรกไม่ได้ถูกวาดเป็นแท่ง แต่บอกว่าหกหลักซ้ายใช้ตาราง L หรือ G สลับกันอย่างไร',
+                 'The first digit is never drawn as bars - it chooses the L/G pattern of the six left digits'));
+    o.push('EAN_PARITY = ["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG",');
+    o.push('              "LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"]');
+    o.push('');
+    o.push('');
+    o.push('def ean13_check_digit(twelve):');
+    o.push('    total = sum((3 if i % 2 else 1) * int(c) for i, c in enumerate(twelve))');
+    o.push('    return str((10 - total % 10) % 10)');
+    o.push('');
+    o.push('');
+    o.push('def make_ean13(twelve):');
+    o.push('    if len(twelve) != 12 or not twelve.isdigit():');
+    o.push('        raise ValueError("'+L('ต้องเป็นตัวเลข 12 หลัก','EAN-13 needs exactly 12 digits')+'")');
+    o.push('    code = twelve + ean13_check_digit(twelve)');
+    o.push('    parity = EAN_PARITY[int(code[0])]');
+    o.push('    bits = "101"');
+    o.push('    for i, ch in enumerate(code[1:7]):');
+    o.push('        bits += (EAN_L if parity[i] == "L" else EAN_G)[int(ch)]');
+    o.push('    bits += "01010"                            # '+L('ตัวคั่นกลาง','centre guard'));
+    o.push('    for ch in code[7:]:');
+    o.push('        bits += EAN_R[int(ch)]');
+    o.push('    bits += "101"');
+    o.push('');
+    o.push('    # '+L('แท่งบางอ่านง่ายกว่าแท่งหนามาก จึงกดความกว้างไว้ที่ 2-4 พิกเซล',
+                      'Thin bars read far more reliably than thick ones, so the module is held to 2-4 px'));
+    o.push('    module = min(4, max(2, round(SIZE_PX / 115)))');
+    o.push('    quiet = 10');
+    o.push('    width = (95 + 2 * quiet) * module');
+    o.push('    height = max(90, int(width * 0.42))');
+    o.push('    img = np.full((height, width), 255, np.uint8)');
+    o.push('    for i, bit in enumerate(bits):');
+    o.push('        if bit == "1":');
+    o.push('            x = (quiet + i) * module');
+    o.push('            img[:, x:x + module] = 0');
+    o.push('    pad = module * 8');
+    o.push('    print("[CODE]", code)');
+    o.push('    return cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)');
+  }
+  o.push('');
+  o.push('');
+  o.push('def main():');
+  o.push('    parser = argparse.ArgumentParser(description="TESR Image Processing Lab - code generator")');
+  o.push('    parser.add_argument("--out", default=OUTPUT, help="'+L('ไฟล์ปลายทาง','output file')+'")');
+  if(Z.type==='aruco'){
+    o.push('    parser.add_argument("--sheet", type=int, default=0,');
+    o.push('                        help="'+L('สร้างหลายตัวเรียงเป็นแผ่นเดียว เช่น --sheet 12','make this many markers on one sheet, e.g. --sheet 12')+'")');
+    o.push('    parser.add_argument("--first-id", type=int, default=MARKER_ID)');
+  }
+  o.push('    parser.add_argument("--show", action="store_true", help="'+L('เปิดหน้าต่างแสดงผลด้วย','also open a preview window')+'")');
+  o.push('    args = parser.parse_args()');
+  o.push('');
+  if(Z.type==='aruco'){
+    o.push('    if args.sheet > 0:');
+    o.push('        img = make_sheet(args.first_id, args.sheet)');
+    o.push('    else:');
+    o.push('        img = make_marker(args.first_id)');
+  }else if(Z.type==='qr'){
+    o.push('    img = make_qr()');
+  }else{
+    o.push('    img = make_ean13(EAN_DIGITS)');
+  }
+  o.push('    cv2.imwrite(args.out, img)');
+  o.push('    print("[SAVED]", os.path.abspath(args.out), img.shape[1], "x", img.shape[0])');
+  o.push('    if args.show:');
+  o.push('        cv2.imshow("TESR code", img)');
+  o.push('        cv2.waitKey(0)');
+  o.push('        cv2.destroyAllWindows()');
+  o.push('');
+  o.push('');
+  o.push('if __name__ == "__main__":');
+  o.push('    main()');
+  return o.join('\n');
+}
+
+function codeCodes(P){
+  const G=P.gen, Z=P.codes;
+  if(Z.mode==='make') return codeCodesMake(P);
+
+  const want=[]; if(Z.aruco) want.push('ArUco'); if(Z.qr) want.push('QR'); if(Z.bar) want.push('Barcode');
+  const o=header('Codes & Markers - read '+(want.join(' + ')||'nothing selected'),G,codeCodesNotes(Z),{os:true,json:true});
+  o.push('# ---------- '+L('ค่าที่จูนไว้','Tuned parameters')+' ----------');
+  o.push('WINDOW_NAME = "TESR Codes and Markers"');
+  o.push('SCALE_PERCENT = '+P.scale);
+  o.push('READ_ARUCO = '+(Z.aruco?'True':'False'));
+  o.push('READ_QR = '+(Z.qr?'True':'False'));
+  o.push('READ_BARCODE = '+(Z.bar?'True':'False'));
+  if(Z.aruco){
+    o.push('ARUCO_DICT = cv2.aruco.'+(DICT_NAME[Z.dict]||'DICT_4X4_50')+'   # '+L('ต้องตรงกับที่พิมพ์','must match what was printed'));
+    o.push('MARKER_MM = '+(Z.mm>0?Z.mm:0)+'   # '+L('ขนาดจริงของมาร์กเกอร์ ขอบนอกถึงขอบนอก · 0 = ไม่คำนวณ มม.','real marker size, outer corner to outer corner; 0 = skip the mm maths'));
+  }
+  if(Z.bar) o.push('SOFTEN_BARCODE = '+(Z.soft?'True':'False')+'   # '+L('เบลอ 5x5 ก่อนอ่าน ช่วยกับไฟล์ภาพที่คมเกินไป','5x5 blur before reading, which rescues over-sharp image files'));
+  o.push('SHOW_LABELS = '+(Z.label?'True':'False'));
+  o.push('');
+  o.push('GOLD = (55, 175, 212)       # BGR');
+  o.push('CRIMSON = (91, 73, 209)     # BGR');
+  o.push('GREEN = (140, 200, 120)     # BGR');
+  o.push('');
+  o.push(...saveBlock(G));
+  o.push(...mqttBlock(G));
+  o.push(...scaleBlock(P));
+  if(Z.aruco){
+    o.push('ARUCO_DETECTOR = cv2.aruco.ArucoDetector(');
+    o.push('    cv2.aruco.getPredefinedDictionary(ARUCO_DICT),');
+    o.push('    cv2.aruco.DetectorParameters())');
+  }
+  if(Z.qr) o.push('QR_DETECTOR = cv2.QRCodeDetector()');
+  if(Z.bar) o.push('BARCODE_DETECTOR = cv2.barcode.BarcodeDetector()');
+  o.push('');
+  o.push('');
+  o.push('def draw_quad(image, pts, color, label):');
+  o.push('    '+Q+L('โค้ดที่อ่านได้คืนมาเป็นสี่มุม ไม่ใช่สี่เหลี่ยมแนวตั้ง จึงวาดเป็นรูปสี่เหลี่ยมเอียงได้',
+                    'These detectors return four corners, not an upright rectangle, so draw the real quad')+Q);
+  o.push('    pts = np.asarray(pts, dtype=np.int32).reshape(-1, 2)');
+  o.push('    cv2.polylines(image, [pts], True, color, 2, cv2.LINE_AA)');
+  o.push('    if SHOW_LABELS:');
+  o.push('        x, y = pts[0]');
+  o.push('        cv2.putText(image, label, (int(x), max(14, int(y) - 8)),');
+  o.push('                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2, cv2.LINE_AA)');
+  o.push('');
+  o.push('');
+  o.push('def process(frame):');
+  if(P.scale<100) o.push('    frame = resize_frame(frame)');
+  o.push('    result = frame.copy()');
+  o.push('    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)');
+  o.push('    found = []');
+  o.push('    mm_per_px = None');
+  o.push('');
+  if(Z.aruco){
+    o.push('    if READ_ARUCO:');
+    o.push('        corners, ids, _ = ARUCO_DETECTOR.detectMarkers(gray)');
+    o.push('        sides = []');
+    o.push('        if ids is not None:');
+    o.push('            for quad, marker_id in zip(corners, ids.flatten()):');
+    o.push('                pts = quad.reshape(4, 2)');
+    o.push('                draw_quad(result, pts, GOLD, f"id {marker_id}")');
+    o.push('                cx, cy = pts.mean(axis=0)');
+    o.push('                # '+L('ความยาวด้านเฉลี่ย ตรงกับความหมายของ "ขนาด" ตอนพิมพ์','mean edge length, which is what the printed size refers to'));
+    o.push('                side = float(np.mean([np.linalg.norm(pts[i] - pts[(i + 1) % 4]) for i in range(4)]))');
+    o.push('                sides.append(side)');
+    o.push('                found.append({"type": "ArUco", "value": int(marker_id),');
+    o.push('                              "x": int(cx), "y": int(cy), "side_px": round(side, 1)})');
+    o.push('        if MARKER_MM > 0 and sides:');
+    o.push('            mm_per_px = MARKER_MM / float(np.median(sides))');
+    o.push('');
+  }
+  if(Z.qr){
+    o.push('    if READ_QR:');
+    o.push('        # '+L('detectAndDecodeMulti อ่านได้หลายอันในเฟรมเดียว','detectAndDecodeMulti handles several codes in one frame'));
+    o.push('        ok, texts, points, _ = QR_DETECTOR.detectAndDecodeMulti(gray)');
+    o.push('        if ok and points is not None:');
+    o.push('            for text, quad in zip(texts, points):');
+    o.push('                if not text:');
+    o.push('                    continue        # '+L('เจอกรอบแต่ถอดรหัสไม่ได้ ไม่ควรรายงานเป็นผลลัพธ์','found but not decoded - not a result'));
+    o.push('                draw_quad(result, quad, CRIMSON, "QR")');
+    o.push('                cx, cy = np.asarray(quad).reshape(4, 2).mean(axis=0)');
+    o.push('                found.append({"type": "QR", "value": text, "x": int(cx), "y": int(cy)})');
+    o.push('');
+  }
+  if(Z.bar){
+    o.push('    if READ_BARCODE:');
+    o.push('        # '+L('วัดมาแล้ว: ภาพที่คมมาก เบลอ 3x3 จะ "เจอ" แท่งแต่ถอดรหัสไม่ได้ 5x5 ถึงจะถอดได้ 7x7 ไว้เผื่อแท่งหนา',
+                          'Measured: on a very crisp image a 3x3 blur FINDS the bars but fails to decode them. 5x5 decodes; 7x7 is the fallback for thicker bars.'));
+    o.push('        attempts = [5, 7] if SOFTEN_BARCODE else [0]');
+    o.push('        values, types, points = [], [], None');
+    o.push('        for k in attempts:');
+    o.push('            source = cv2.GaussianBlur(gray, (k, k), 0) if k else gray');
+    o.push('            ok, values, types, points = BARCODE_DETECTOR.detectAndDecodeWithType(source)');
+    o.push('            if ok and any(values):');
+    o.push('                break');
+    o.push('        if points is not None and len(values):');
+    o.push('            for value, kind, quad in zip(values, types, points):');
+    o.push('                if not value:');
+    o.push('                    continue');
+    o.push('                draw_quad(result, quad, GREEN, kind)');
+    o.push('                cx, cy = np.asarray(quad).reshape(4, 2).mean(axis=0)');
+    o.push('                found.append({"type": kind, "value": value, "x": int(cx), "y": int(cy)})');
+    o.push('');
+  }
+  o.push('    banner = f"codes: {len(found)}"');
+  o.push('    if mm_per_px:');
+  o.push('        banner += f"   {mm_per_px:.3f} mm/px"');
+  o.push('    cv2.putText(result, banner, (12, 32),');
+  o.push('                cv2.FONT_HERSHEY_SIMPLEX, 0.8, GOLD, 2, cv2.LINE_AA)');
+  o.push('');
+  o.push('    info = {"count": len(found), "codes": found, "ts": time.time()}');
+  o.push('    if mm_per_px:');
+  o.push('        info["mm_per_px"] = round(mm_per_px, 5)');
+  o.push('    return result, info');
+  o.push('');
+  o.push('');
+  o.push(...captureBlock(G));
+  o.push(...mainBlock(G,{}));
+  return o.join('\n');
+}
+
 let CODE='';
 function asciiSafe(t){
   // clipboard round-trips (browser -> VNC/RDP -> Thonny) mangle fancy punctuation
@@ -3841,6 +5324,19 @@ function paramSummary(P){
     rows.push(['Cascade', H.cascade.replace('haarcascade_','').replace('.xml','')],
               ['scaleFactor · minNeighbors', H.sf.toFixed(2)+' · '+H.mn],
               ['minSize', H.minSize+' px'+(H.roi?(en?' · inside face ROI':' · เฉพาะในใบหน้า'):'')]);
+  }else if(TAB==='codes'){
+    const Z=P.codes;
+    if(Z.mode==='make'){
+      rows.push([en?'Making':'กำลังสร้าง', {aruco:'ArUco',qr:'QR',ean13:'EAN-13'}[Z.type]]);
+      if(Z.type==='aruco') rows.push(['Dictionary', DICT_NAME[Z.dict]||'-'],['id', ''+Z.id]);
+      if(Z.type==='qr') rows.push([en?'Error correction':'ระดับกู้คืน', Z.ec]);
+      if(Z.type==='ean13') rows.push([en?'Digits':'ตัวเลข', Z.digits]);
+    }else{
+      const want=[]; if(Z.aruco) want.push('ArUco'); if(Z.qr) want.push('QR'); if(Z.bar) want.push('Barcode');
+      rows.push([en?'Reading':'กำลังอ่าน', want.length?want.join(' + '):(en?'nothing selected':'ยังไม่ได้เลือก')]);
+      if(Z.aruco) rows.push(['Dictionary', DICT_NAME[Z.dict]||'-']);
+      if(Z.mm>0) rows.push([en?'Marker size':'ขนาดมาร์กเกอร์', Z.mm+' mm']);
+    }
   }else if(TAB==='face'){
     const F=P.face;
     rows.push([en?'Crop size':'ขนาดครอป', F.size+' x '+F.size],
@@ -3851,7 +5347,7 @@ function paramSummary(P){
 }
 function buildCode(P){
   CODE = asciiSafe({circle:codeCircle,color:codeColor,pre:codePre,line:codeLine,draw:codeDraw,
-          haar:codeHaar,face:codeFace}[TAB](P));
+          haar:codeHaar,face:codeFace,codes:codeCodes}[TAB](P));
   $('fileName').textContent=fileNameFor();
   const st=new Date();
   $('codeStamp').textContent=(LANG==='en'?'generated ':'สร้างเมื่อ ')+st.toLocaleTimeString();
@@ -3919,7 +5415,8 @@ const TAB_LABELS={
   circle:['⭕ หาวงกลม','⭕ Find circles'], color:['🎨 จับสี & นับชิ้น','🎨 Colour & count'],
   pre:['🛠 ปรับแต่งภาพ','🛠 Image basics'], line:['📏 หาเส้นตรง','📏 Find lines'],
   draw:['✏️ วาด & ข้อความ','✏️ Draw & text'], haar:['👁 ตา / หน้า / ยิ้ม','👁 Eyes / face / smile'],
-  face:['🪪 จำใบหน้า','🪪 Face recognition']};
+  face:['🪪 จำใบหน้า','🪪 Face recognition'],
+  codes:['🔳 โค้ด & มาร์กเกอร์','🔳 Codes & markers']};
 function setView(v){
   VIEW=v;
   $('viewWork').classList.toggle('hidden', v!=='work');
@@ -3967,6 +5464,26 @@ $('resetPane').onclick=()=>{
   });
   syncLabels(); render();
   toast(LANG==='en'?'This tab is back to defaults':'คืนค่าเริ่มต้นของแท็บนี้แล้ว');
+};
+/* ---------------- codes & markers: download / reuse ---------------- */
+$('z_dl').onclick=()=>{
+  if(!LAST_CODE_URL){ toast(LANG==='en'?'Nothing generated yet':'ยังไม่มีโค้ดที่สร้างไว้'); return; }
+  const a=document.createElement('a');
+  a.href=LAST_CODE_URL; a.download=LAST_CODE_NAME; a.click();
+};
+$('z_use').onclick=()=>{
+  if(!LAST_CODE_URL){ toast(LANG==='en'?'Nothing generated yet':'ยังไม่มีโค้ดที่สร้างไว้'); return; }
+  const url=LAST_CODE_URL, name=LAST_CODE_NAME;
+  // switch back to reading mode so the round trip is visible immediately
+  $('z_mode').value='detect';
+  const t=$('z_type').value;
+  $('z_aruco').checked = t==='aruco';
+  $('z_qr').checked    = t==='qr';
+  $('z_bar').checked   = t==='ean13';
+  syncLabels();
+  loadUrl(url,name);
+  toast(LANG==='en'?'Sent to the main image — now reading it back'
+                   :'ส่งเข้าภาพหลักแล้ว กำลังอ่านกลับ');
 };
 $('gotoCode').onclick=()=>setView('export');
 document.querySelectorAll('#jumpbar button').forEach(b=>b.onclick=()=>{
