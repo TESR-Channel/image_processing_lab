@@ -31,6 +31,7 @@ Everything is processed by **OpenCV.js (WebAssembly) on the user's machine** —
 | **Draw & text** | `Drawing_Line.py`, `Drawing_Rectangle.py`, `Drawing_Circle.py`, `Put_Text.py` |
 | **Haar Cascade** | `EyesDetectionusingHaarCascades.py`, `EyesDetectionWithWebcam.py`, `EyesDetectionWithKinect.py` |
 | **Face Recognition** | Builds on Haar — enrol faces, train LBPH, recognise |
+| **Codes & markers** | New — ArUco, QR and EAN-13: make one to print, then read it back |
 
 All 19 original scripts are kept in `python/` for classroom reference.
 
@@ -44,6 +45,7 @@ All 19 original scripts are kept in `python/` for classroom reference.
 - **Canny + Hough lines** with an **angle filter** (0 = horizontal, 90 = vertical) for factory floor markings and conveyor edges.
 - **Haar Cascade** for eyes, faces and smiles, with a **face-ROI mode** — find the face first, then search only inside it, which removes most false positives.
 - **Face Recognition** — enrol faces in the browser (LBP histogram + chi-square, live-tunable threshold), then generate a full Python script using the real `cv2.face.LBPHFaceRecognizer` with three modes: `--mode enroll` → `--mode train` → `--mode recognize`.
+- **Codes & markers** — two modes in one tab. *Make* draws an ArUco marker (nine dictionaries, any id), a QR code (any UTF-8 text including Thai, four error-correction levels) or an EAN-13 barcode from 12 digits, with the check digit worked out for you. One button sends it straight back into the main image so the whole loop — make it, read it, export the Python — happens on one screen. *Read* finds all three in an image or a live frame, reports ids, decoded text, positions and corners, and converts pixels to millimetres when you give it the printed marker size. The exported Python matches: a reader script, or a generator script that can also lay out a printable sheet of markers.
 - **Python code shown in full on the same page**, updating live as you tune. Press **Copy** or **Download .py**, plus `requirements.txt` and result-image download.
 - Generated code targets: PC (`cv2.VideoCapture`) · Raspberry Pi 5 (`Picamera2`) · NVIDIA Jetson (GStreamer `nvarguscamerasrc`, USB fallback) · Kinect v1 (`freenect`). Input source: image file / live camera / video file. Options: FPS overlay, saving result frames, **MQTT** publishing for Node-RED dashboards, Thai or English comments.
 - Bilingual UI (TH/EN toggle in the header).
@@ -135,6 +137,17 @@ The page also tries multiple fallback strategies automatically (relaxed constrai
 - `cv2.HoughLines` returns `(rho, theta)` — an infinite line you must convert to two points before drawing; `cv2.HoughLinesP` returns real end points so segment length can be measured.
 - `cv2.putText` cannot render Thai. For Thai text, draw through PIL and convert back to a NumPy array.
 - Haar cascades are sensitive to lighting, pose and glasses; even a high `minNeighbors` leaves some false hits. Accuracy-critical work should use YOLO, SSD or MediaPipe.
+- The ArUco **dictionary must match the printed markers exactly**. Pick the wrong set and nothing is found at all, however sharp the marker is — this is the number one reason for "it sees nothing".
+- Every code needs its **white quiet zone**. Cropping it off, or printing onto glossy or laminated stock, is what breaks most real installations.
+- `MARKER_MM` turns pixels into millimetres only while the marker lies flat and parallel to the sensor. Tilt it and the number is wrong — a marker gives you scale, not a full pose, unless you calibrate the camera.
+
+### About the Codes & markers tab
+
+- **OpenCV can read these codes but cannot draw QR or EAN-13 in the browser.** `objdetect` ships detectors plus an ArUco *generator*, and `cv2.QRCodeEncoder` exists in Python — but the browser build has no QR or barcode encoder at all. So the QR and EAN-13 drawing on this page is ours, written from ISO/IEC 18004 and 15420 and kept in `_build/encoders.js`. Every symbol it produces is round-tripped back through OpenCV before release; see `_build/verify.py`.
+- **OpenCV's barcode detector works on edge gradients, so it dislikes pixel-perfect images.** Measured on this page's own output: with no blur it decodes nothing; with a 3×3 blur it *finds* the bars but still fails to decode; at 5×5 it decodes. That is why "soften edges" exists and why it tries 5×5 then 7×7. A photographed barcode usually needs none of this — the camera does the softening for you. The same two-step is written into the exported Python.
+- For the same reason the generator holds the EAN-13 module width to 2–4 px however large the export is: thin bars read far more reliably than thick ones. Scale it up in the print dialog, not in the pixels.
+- ArUco and QR have no such quirk — both round-trip cleanly at every size tested, Thai text included.
+- `cv2.QRCodeDetector().detectAndDecode` reads one QR at a time, which is what the browser tab does. The exported Python uses `detectAndDecodeMulti`, which returns several in one frame.
 
 ### About Face Recognition
 
@@ -182,6 +195,7 @@ The TESR name and logo are trademarks of TESR Co., Ltd. and are not covered by t
 | **วาด & ข้อความ** | `Drawing_Line/Rectangle/Circle.py`, `Put_Text.py` |
 | **Haar Cascade** | `EyesDetection` ทั้ง 3 ไฟล์ |
 | **Face Recognition** | ต่อยอดจาก Haar — ลงทะเบียน เทรน LBPH แล้วรู้จำ |
+| **โค้ด & มาร์กเกอร์** | ของใหม่ — ArUco, QR, EAN-13: สร้างไว้พิมพ์ แล้วอ่านกลับได้ในหน้าเดียว |
 
 สคริปต์ต้นฉบับทั้ง 19 ไฟล์เก็บไว้ที่ `python/` เพื่ออ้างอิงระหว่างสอน
 
@@ -194,6 +208,7 @@ The TESR name and logo are trademarks of TESR Co., Ltd. and are not covered by t
 - **Canny + Hough Lines** พร้อม**กรองตามมุมเส้น** สำหรับงานเส้นตีพื้นโรงงาน
 - **Haar Cascade** พร้อมโหมด face ROI ตัด false positive
 - **Face Recognition** — ลงทะเบียนในเบราว์เซอร์ แล้ว generate สคริปต์ LBPH ครบ enroll → train → recognize
+- **โค้ด & มาร์กเกอร์** — แท็บเดียวมีสองโหมด *สร้าง* วาด ArUco (เลือกได้ 9 dictionary ทุก id), QR (ข้อความ UTF-8 ใส่ภาษาไทยได้ เลือกระดับกู้คืนได้ 4 ระดับ) หรือบาร์โค้ด EAN-13 จากตัวเลข 12 หลักโดยคำนวณหลักตรวจสอบให้ กดปุ่มเดียวส่งกลับเข้าภาพหลักเพื่ออ่านซ้ำ ครบวงจร สร้าง → อ่าน → ออกเป็นโค้ด Python ในจอเดียว · *อ่าน* หาได้ทั้งสามแบบจากภาพนิ่งหรือกล้องสด บอก id ข้อความที่ถอดได้ ตำแหน่งและมุมทั้งสี่ และแปลงพิกเซลเป็นมิลลิเมตรให้เมื่อใส่ขนาดมาร์กเกอร์ที่พิมพ์จริง โค้ด Python ที่ได้ก็มีทั้งตัวอ่านและตัวสร้าง (สร้างแผ่นมาร์กเกอร์หลายตัวไว้พิมพ์ทีเดียวได้ด้วย)
 - **โค้ด Python โชว์เต็มในหน้าเดียวกัน** อัปเดตตามค่าที่ปรับ กด**คัดลอก**หรือ**ดาวน์โหลด .py** ได้ทันที พร้อม `requirements.txt`
 - UI สลับไทย/อังกฤษได้ที่มุมขวาบน
 
@@ -249,6 +264,17 @@ Deploy ขึ้น GitHub Pages: **Settings → Pages → Source: GitHub Action
 - `HoughCircles` คืนค่า**รัศมี**ไม่ใช่เส้นผ่านศูนย์กลาง · `Canny` รับ apertureSize เฉพาะ 3, 5, 7 · `putText` วาดภาษาไทยไม่ได้
 - `confidence` ของ LBPH คือ**ระยะห่าง ยิ่งน้อยยิ่งเหมือน** ไม่ใช่เปอร์เซ็นต์ และต้องใช้ `opencv-contrib-python` (ห้ามลงคู่กับ `opencv-python`)
 - รีโพนี้ไม่แถมภาพใบหน้า — ภาพบุคคลมีเรื่องลิขสิทธิ์และ PDPA ระบบจริงที่เก็บใบหน้าต้องขอความยินยอมโดยชัดแจ้งเสมอ
+- **dictionary ของ ArUco ต้องตรงกับที่พิมพ์เป๊ะ ๆ** เลือกผิดชุดจะไม่เจออะไรเลยแม้มาร์กเกอร์จะคมมาก — เป็นสาเหตุอันดับหนึ่งของอาการ "มันไม่เจอ"
+- โค้ดทุกชนิดต้องมี**ขอบขาว** รอบตัว ตัดขอบทิ้งหรือพิมพ์ลงกระดาษเคลือบเงาคือสาเหตุที่หน้างานจริงพังบ่อยที่สุด
+- `MARKER_MM` แปลงพิกเซลเป็นมิลลิเมตรได้เฉพาะตอนมาร์กเกอร์วางราบขนานกับเซนเซอร์ ถ้าเอียงตัวเลขจะผิด — มาร์กเกอร์ให้ "สเกล" ไม่ได้ให้ pose เต็ม นอกจากจะ calibrate กล้องก่อน
+
+### เกี่ยวกับแท็บโค้ด & มาร์กเกอร์
+
+- **OpenCV อ่านโค้ดพวกนี้ได้ แต่วาด QR กับ EAN-13 ในเบราว์เซอร์ไม่ได้** ตัว build สำหรับเว็บมีแต่ตัวอ่าน กับตัวสร้าง ArUco เท่านั้น (ฝั่ง Python มี `cv2.QRCodeEncoder` ให้) ตัววาด QR และ EAN-13 บนหน้านี้จึงเขียนขึ้นเอง อ้างอิง ISO/IEC 18004 และ 15420 เก็บไว้ที่ `_build/encoders.js` และทุกสัญลักษณ์ที่สร้างถูกทดสอบอ่านกลับด้วย OpenCV ก่อนปล่อยเสมอ (ดู `_build/verify.py`)
+- **ตัวอ่านบาร์โค้ดของ OpenCV ดูการไล่ระดับของขอบ จึงไม่ถูกกับภาพที่คมเป๊ะ** วัดจากผลลัพธ์ของหน้านี้เอง: ไม่เบลอเลย = อ่านไม่ออก, เบลอ 3x3 = "เจอ" แท่งแต่ถอดรหัสไม่ได้, เบลอ 5x5 = ถอดได้ จึงมีตัวเลือก "เบลอเล็กน้อยก่อนอ่าน" และระบบจะลอง 5x5 ก่อนแล้วค่อย 7x7 · ถ้าถ่ายจากกล้องจริงมักไม่ต้องใช้เลยเพราะกล้องเบลอให้อยู่แล้ว และโค้ด Python ที่ export ก็ทำสองขั้นเดียวกัน
+- ด้วยเหตุผลเดียวกัน ตัวสร้าง EAN-13 จะกดความกว้างแท่งไว้ที่ 2–4 พิกเซลเสมอไม่ว่าจะสั่งขนาดใหญ่แค่ไหน เพราะแท่งบางอ่านง่ายกว่าแท่งหนามาก ถ้าต้องการใหญ่ขึ้นให้ไปขยายตอนสั่งพิมพ์
+- ArUco กับ QR ไม่มีอาการนี้ ทดสอบแล้วอ่านกลับได้ครบทุกขนาด รวมถึงข้อความภาษาไทย
+- `cv2.QRCodeDetector().detectAndDecode` อ่าน QR ได้ทีละอัน ซึ่งเป็นสิ่งที่แท็บในเบราว์เซอร์ทำ ส่วนโค้ด Python ที่ export ใช้ `detectAndDecodeMulti` อ่านได้หลายอันในเฟรมเดียว
 
 ### License
 
