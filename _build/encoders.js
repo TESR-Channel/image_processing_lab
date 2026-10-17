@@ -1192,7 +1192,13 @@
     // would end the symbol early.
     for (var i = 0; i < s.length; i++) {
       var ch = s.charAt(i);
-      if (ch === '*' || !Object.prototype.hasOwnProperty.call(__c39Patterns, ch)) {
+      if (ch === '*') {
+        throw new Error(
+          'code39Encode: "*" is the Code 39 start/stop delimiter and cannot ' +
+          'appear in the data - it is added automatically'
+        );
+      }
+      if (!Object.prototype.hasOwnProperty.call(__c39Patterns, ch)) {
         throw new Error(
           'code39Encode: character "' + ch + '" is not in the Code 39 ' +
           'character set, which is A-Z, 0-9 and - . $ / + % and space'

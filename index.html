@@ -882,6 +882,9 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
               <option value="code128" data-i18n="z.ty6">Code 128 — โรงงาน/โลจิสติกส์ ใส่ตัวอักษรได้</option>
               <option value="code39" data-i18n="z.ty7">Code 39 — อุตสาหกรรมรุ่นเก่า</option>
             </select>
+            <!-- one line per type saying where a learner actually meets it, set
+                 from Z_TYPE_NOTE in syncLabels so it follows the language -->
+            <div class="hint" id="z_typeNote"></div>
           </div>
           <div id="z_gAruco">
             <div class="field">
@@ -1238,6 +1241,7 @@ function setLang(l){
   document.getElementById('langEN').classList.toggle('on',l==='en');
   document.documentElement.lang=l;
   setLiveUI();
+  syncLabels();   // the labels built in JS rather than from data-i18n, e.g. the code-type note
   if(VIEW==='export') $('exportTabName').textContent=TAB_LABELS[TAB][l==='en'?1:0];
   render();
 }
@@ -1551,6 +1555,32 @@ document.querySelectorAll('input[type=range],input[type=checkbox],input[type=col
   el.addEventListener('input',onEdit);
   el.addEventListener('change',onEdit);
 });
+/* One line per code type, saying where a learner would actually run into it.
+   [Thai, English]. Deliberately plain: where you meet it, what it can hold,
+   and - for the two OpenCV cannot read - that fact, said out loud rather than
+   left for the learner to discover as a silent zero. */
+const Z_TYPE_NOTE={
+  aruco:['ใช้ในงานหุ่นยนต์และกล้องวัดตำแหน่ง ติดไว้บนชิ้นงาน พาเลท หรือพื้น แล้วให้กล้องอ่านตำแหน่งและมุมเอียง · เก็บได้แค่หมายเลข id ไม่ใช่ข้อความ',
+         'Used in robotics and camera metrology: stick one on a part, a pallet or the floor and the camera reads its position and tilt. It carries an id number only, not text.'],
+  qr:['โค้ดที่เจอบ่อยที่สุดในชีวิตประจำวันไทย เช่น QR พร้อมเพย์ ลิงก์เว็บ และป้ายข้อมูลเครื่องจักร · เก็บข้อความยาวและภาษาไทยได้ และยังอ่านออกแม้โดนขีดข่วนบางส่วน',
+      'The code you meet most often day to day - PromptPay payment QRs, web links, machine info plates. It holds long text, Thai included, and still reads when partly scuffed.'],
+  ean13:['บาร์โค้ด 13 หลักหลังกล่องสินค้าในซูเปอร์มาร์เก็ตและร้านสะดวกซื้อ · สินค้าที่ลงทะเบียนในไทยขึ้นต้นด้วย 885 · เก็บได้แต่ตัวเลข',
+         'The 13-digit barcode on the back of supermarket and convenience-store products. Products registered in Thailand start with 885. Digits only.'],
+  ean8:['EAN-13 ย่อให้สั้นลงเหลือ 8 หลัก ใช้บนสินค้าชิ้นเล็กที่พื้นที่ไม่พอพิมพ์ตัวเต็ม เช่น ลูกอม ซองเครื่องปรุง ขนมซองเล็ก · เก็บได้แต่ตัวเลข',
+        'A shortened 8-digit EAN for small items where the full symbol will not fit - sweets, sachets, small snack bags. Digits only.'],
+  upca:['บาร์โค้ด 12 หลักของฝั่งอเมริกาเหนือ เจอบนสินค้านำเข้า · เป็นสัญลักษณ์เดียวกับ EAN-13 ที่ขึ้นต้นด้วย 0 เป๊ะ ๆ ตัวอ่านบางตัวจึงรายงานเป็น EAN-13 · เก็บได้แต่ตัวเลข',
+        'The 12-digit North American barcode, found on imported goods. It is bit-for-bit an EAN-13 starting with 0, so some readers report it as EAN-13. Digits only.'],
+  code128:['บาร์โค้ดงานโรงงานและโลจิสติกส์ เจอบนใบปิดกล่องพาร์เซล ป้ายพาเลท และใบงานในคลังสินค้า · ใส่ตัวอักษรและเครื่องหมายได้ จึงเก็บรหัสพาร์ทหรือเลขล็อตได้ตรง ๆ · OpenCV อ่านชนิดนี้ไม่ได้ ต้องใช้ pyzbar',
+           'The factory and logistics barcode: parcel labels, pallet tags, warehouse job sheets. It takes letters and punctuation, so a part number or lot code goes in as-is. OpenCV cannot read this one - it needs pyzbar.'],
+  code39:['บาร์โค้ดรุ่นเก่ากว่า Code 128 ยังเจอบนป้ายครุภัณฑ์ ป้ายทรัพย์สิน และเครื่องจักรกับระบบเดิมในโรงงาน · ใส่ได้เฉพาะ A-Z 0-9 และ - . $ / + % เว้นวรรค และกินพื้นที่กว้างกว่า · OpenCV อ่านชนิดนี้ไม่ได้ ต้องใช้ pyzbar',
+          'Older than Code 128 and still found on asset tags, equipment plates and legacy machines and systems in factories. It takes only A-Z, 0-9 and - . $ / + % and space, and is wider for the same data. OpenCV cannot read this one - it needs pyzbar.']
+};
+
+/* 885 is Thailand's GS1 prefix, so the EAN-13 example looks like a Thai
+   product; the EAN-8 and UPC-A examples are the usual textbook numbers. */
+const EAN_EXAMPLE={ean13:'885012341234',ean8:'9638507',upca:'01234567890'};
+let Z_LAST_TYPE=null;
+
 function syncLabels(){
   $('scaleV').textContent=$('scale').value+'%';
   $('c_dpV').textContent=(+$('c_dp').value).toFixed(1);
@@ -1623,10 +1653,19 @@ function syncLabels(){
   $('z_gQr').classList.toggle('hidden',zType!=='qr');
   $('z_gEan').classList.toggle('hidden',!(zType in EAN_KIND));
   $('z_gText').classList.toggle('hidden',!(zType==='code128'||zType==='code39'));
+  // Each EAN/UPC variant wants a different digit count, so swapping the type
+  // swaps in a valid example rather than leaving the old number to fail
+  // validation. Only on an actual type change - never while someone is typing.
+  if(zType!==Z_LAST_TYPE){
+    if(zType in EAN_KIND) $('z_digits').value=EAN_EXAMPLE[zType];
+    Z_LAST_TYPE=zType;
+  }
   if(zType in EAN_KIND){
     const n=EAN_KIND[zType];
     $('z_digitsLbl').textContent = LANG==='en' ? ('Digits ('+n+')') : ('ตัวเลข '+n+' หลัก');
+    $('z_digits').placeholder=EAN_EXAMPLE[zType];
   }
+  $('z_typeNote').textContent=(Z_TYPE_NOTE[zType]||['',''])[LANG==='en'?1:0];
   $('z_id').max=String(Math.max(0,(DICT_COUNT[$('z_dict').value]||50)-1));
   if(+$('z_id').value>+$('z_id').max){ $('z_id').value=$('z_id').max; $('z_idV').textContent=$('z_id').value; }
   const rangeMode=$('k_mode').value==='range';
@@ -2357,27 +2396,38 @@ function runHaar(src,H){
   return [dst,n,{head:['#','x','y','w','h'],rows:rows}];
 }
 
-/* ---------------- QR and EAN-13 encoders ----------------
+/* ---------------- QR and barcode encoders ----------------
    Inlined from _build/encoders.js so the page stays one self-contained
    file with no CDN dependency. OpenCV can READ these codes but ships no
    encoder for them in the browser build, so the drawing is ours.
-   Verified by round-tripping every output back through cv2 in Python. */
+   Verified by round-tripping every output back through cv2 and pyzbar in
+   Python - see _build/README.md for the harness and the exact commands. */
 /* =============================================================================
  * TESR Image Processing Lab - encoders.js
  * -----------------------------------------------------------------------------
- * Dependency-free QR Code and EAN-13 encoders for the browser teaching tool.
+ * Dependency-free QR Code and 1D barcode encoders for the browser teaching tool.
  *
  * No imports, no npm packages, no build step. Drop this file in a <script> tag
- * (or load it in Node with require/import of the file path) and two globals
+ * (or load it in Node with require/import of the file path) and six globals
  * appear:
  *
  *   qrEncode(text, ecLevel)  ->  { version, ecLevel, mask, size, modules }
  *   ean13Encode(digits)      ->  { code, bits }
+ *   ean8Encode(digits)       ->  { code, bits }
+ *   upcaEncode(digits)       ->  { code, bits }
+ *   code128Encode(text)      ->  { code, bits, checksum }
+ *   code39Encode(text)       ->  { code, bits }
+ *
+ * Every 1D encoder returns the same `{ code, bits }` shape - `bits` is a string
+ * of '0'/'1' where '1' is a dark module, no quiet zone included - so a single
+ * renderer can draw all five of them.
  *
  * Everything else lives inside the IIFE below, so nothing else can collide.
- * The few symbols that must be reachable for debugging are prefixed __qr / __ean.
+ * The few symbols that must be reachable for debugging are prefixed
+ * __qr / __ean / __upca / __c128 / __c39.
  *
- * References: ISO/IEC 18004 (QR Code) and ISO/IEC 15420 (EAN/UPC).
+ * References: ISO/IEC 18004 (QR Code), ISO/IEC 15420 (EAN/UPC),
+ * ISO/IEC 15417 (Code 128) and ISO/IEC 16388 (Code 39).
  * ========================================================================== */
 
 (function (global) {
@@ -3162,11 +3212,438 @@ function runHaar(src,H){
   }
 
   /* ===========================================================================
-   * Exports - exactly two globals.
+   * SECTION 3 - EAN-8
+   * ======================================================================== */
+
+  /* ---------------------------------------------------------------------------
+   * 3.1 Structure
+   * ------------------------------------------------------------------------ */
+
+  // EAN-8 is the short form of EAN-13: four digits on each side instead of six,
+  // and no 13th digit to smuggle in. Because there is nothing to encode in the
+  // choice of alphabet, the left half always uses set A (__eanL) - there is no
+  // parity table here at all. The symbol sets themselves are shared with
+  // EAN-13 above, which is why this section is so short.
+  //
+  //   101 + 4*7 + 01010 + 4*7 + 101 = 3 + 28 + 5 + 28 + 3 = 67 modules.
+
+  /* ---------------------------------------------------------------------------
+   * 3.2 Check digit
+   * ------------------------------------------------------------------------ */
+
+  // Same modulo-10 rule as EAN-13, but the weights start at 3 rather than 1
+  // because there are seven digits before the check digit instead of twelve.
+  // The weight of the digit immediately left of the check digit is always 3.
+  function __ean8CheckDigit(first7) {
+    var sum = 0;
+    for (var i = 0; i < 7; i++) {
+      var d = first7.charCodeAt(i) - 48;
+      sum += (i % 2 === 0) ? d * 3 : d;
+    }
+    return (10 - (sum % 10)) % 10;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 3.3 Public EAN-8 entry point
+   * ------------------------------------------------------------------------ */
+
+  /**
+   * Encode an EAN-8 barcode.
+   *
+   * @param {string} digits  7 digits (check digit is computed) or 8 digits
+   *                         (check digit is verified).
+   * @returns {{code:string, bits:string}}
+   *          `code` is the full 8-digit number.
+   *          `bits` is 67 characters of '0'/'1', left guard to right guard,
+   *          where '1' = dark bar.
+   */
+  function ean8Encode(digits) {
+    var s = String(digits === undefined || digits === null ? '' : digits).trim();
+
+    if (!/^[0-9]+$/.test(s)) {
+      throw new Error('ean8Encode: input must contain digits only (got "' + s + '")');
+    }
+    if (s.length !== 7 && s.length !== 8) {
+      throw new Error(
+        'ean8Encode: input must be 7 digits (check digit computed) or ' +
+        '8 digits (check digit verified), got ' + s.length + ' digits'
+      );
+    }
+
+    var code;
+    if (s.length === 7) {
+      code = s + String(__ean8CheckDigit(s));
+    } else {
+      var expected = __ean8CheckDigit(s.slice(0, 7));
+      var given = s.charCodeAt(7) - 48;
+      if (expected !== given) {
+        throw new Error(
+          'ean8Encode: check digit mismatch for "' + s + '" - expected ' +
+          expected + ' but got ' + given
+        );
+      }
+      code = s;
+    }
+
+    var bits = __eanGuardStart;
+    // Left half: digits 1..4, always alphabet L (set A).
+    for (var i = 0; i < 4; i++) {
+      bits += __eanL[code.charCodeAt(i) - 48];
+    }
+    bits += __eanGuardCentre;
+    // Right half: digits 5..8, always alphabet R (set C).
+    for (var j = 0; j < 4; j++) {
+      bits += __eanR[code.charCodeAt(4 + j) - 48];
+    }
+    bits += __eanGuardEnd;
+
+    // 3 + 4*7 + 5 + 4*7 + 3 = 67. Guard against a table typo.
+    if (bits.length !== 67) {
+      throw new Error('ean8Encode: internal error, produced ' + bits.length + ' bits');
+    }
+
+    return { code: code, bits: bits };
+  }
+
+  /* ===========================================================================
+   * SECTION 4 - UPC-A
+   * ======================================================================== */
+
+  /**
+   * Encode a UPC-A barcode.
+   *
+   * UPC-A is exactly an EAN-13 whose leading digit is 0: that leading 0 selects
+   * the parity pattern 'LLLLLL', which is precisely UPC-A's left half. So this
+   * function is deliberately built on the EAN-13 path above - we prepend the 0,
+   * call ean13Encode, and hand back its 95 bits unchanged. The only work left
+   * is to strip the 0 again so the caller gets the 12-digit UPC-A number rather
+   * than a 13-digit EAN-13 one.
+   *
+   * The EAN-13 check digit rule weights the twelve digits 1,3,1,3,... from the
+   * left. With a 0 in front, the first real UPC-A digit lands on weight 3,
+   * which is UPC-A's own 3,1,3,1,... rule - so no separate check digit code is
+   * needed either.
+   *
+   * @param {string} digits  11 digits (check digit is computed) or 12 digits
+   *                         (check digit is verified).
+   * @returns {{code:string, bits:string}}
+   *          `code` is the full 12-digit number (NOT the 13-digit EAN-13 form).
+   *          `bits` is 95 characters of '0'/'1', where '1' = dark bar.
+   */
+  function upcaEncode(digits) {
+    var s = String(digits === undefined || digits === null ? '' : digits).trim();
+
+    if (!/^[0-9]+$/.test(s)) {
+      throw new Error('upcaEncode: input must contain digits only (got "' + s + '")');
+    }
+    if (s.length !== 11 && s.length !== 12) {
+      throw new Error(
+        'upcaEncode: input must be 11 digits (check digit computed) or ' +
+        '12 digits (check digit verified), got ' + s.length + ' digits'
+      );
+    }
+
+    // Verify the check digit here rather than letting ean13Encode do it, so the
+    // error message names upcaEncode and quotes the 12-digit input the caller
+    // actually passed.
+    if (s.length === 12) {
+      var expected = __eanCheckDigit('0' + s.slice(0, 11));
+      var given = s.charCodeAt(11) - 48;
+      if (expected !== given) {
+        throw new Error(
+          'upcaEncode: check digit mismatch for "' + s + '" - expected ' +
+          expected + ' but got ' + given
+        );
+      }
+    }
+
+    var ean = ean13Encode('0' + s);
+
+    return { code: ean.code.slice(1), bits: ean.bits };
+  }
+
+  /* ===========================================================================
+   * SECTION 5 - CODE 128
+   * ======================================================================== */
+
+  /* ---------------------------------------------------------------------------
+   * 5.1 The pattern table
+   * ------------------------------------------------------------------------ */
+
+  // Code 128 has 107 patterns: symbol values 0..102 (the printable characters
+  // and the control codes), then 103/104/105 = Start A/B/C and 106 = Stop.
+  //
+  // Each entry lists element widths in modules, alternating dark, light, dark,
+  // light, ... starting with dark. Values 0..105 have six elements summing to
+  // 11 modules; the Stop pattern has seven elements summing to 13.
+  //
+  // We only implement subset B here, where symbol value = ASCII code - 32,
+  // covering the printable range 32..126. Subsets A and C are left out
+  // deliberately: B alone handles everything a label needs, and mixing subsets
+  // would mean shift/latch logic that obscures the lesson.
+  var __c128Patterns = [
+    '212222', '222122', '222221', '121223', '121322', '131222', '122213',
+    '122312', '132212', '221213', '221312', '231212', '112232', '122132',
+    '122231', '113222', '123122', '123221', '223211', '221132', '221231',
+    '213212', '223112', '312131', '311222', '321122', '321221', '312212',
+    '322112', '322211', '212123', '212321', '232121', '111323', '131123',
+    '131321', '112313', '132113', '132311', '211313', '231113', '231311',
+    '112133', '112331', '132131', '113123', '113321', '133121', '313121',
+    '211331', '231131', '213113', '213311', '213131', '311123', '311321',
+    '331121', '312113', '312311', '332111', '314111', '221411', '431111',
+    '111224', '111422', '121124', '121421', '141122', '141221', '112214',
+    '112412', '122114', '122411', '142112', '142211', '241211', '221114',
+    '413111', '241112', '134111', '111242', '121142', '121241', '114212',
+    '124112', '124211', '411212', '421112', '421211', '212141', '214121',
+    '412121', '111143', '111341', '131141', '114113', '114311', '411113',
+    '411311', '113141', '114131', '311141', '411131', '211412', '211214',
+    '211232', '2331112'
+  ];
+
+  var __c128StartB = 104;
+  var __c128Stop = 106;
+
+  /* ---------------------------------------------------------------------------
+   * 5.2 Helpers
+   * ------------------------------------------------------------------------ */
+
+  // Expand one width pattern into '0'/'1' modules. Elements alternate dark,
+  // light, dark, ... so the element index decides the colour and the digit
+  // decides how many modules of it to emit.
+  function __c128PatternBits(pattern) {
+    var out = '';
+    for (var i = 0; i < pattern.length; i++) {
+      var width = pattern.charCodeAt(i) - 48;
+      var module = (i % 2 === 0) ? '1' : '0';
+      for (var w = 0; w < width; w++) out += module;
+    }
+    return out;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 5.3 Public Code 128 entry point
+   * ------------------------------------------------------------------------ */
+
+  /**
+   * Encode a Code 128 subset B barcode.
+   *
+   * Symbol layout: Start B, one symbol per character, checksum, Stop.
+   * The checksum is (startValue + sum(position * value)) modulo 103, with the
+   * first data character at position 1.
+   *
+   * @param {string} text  Printable ASCII only, character codes 32..126.
+   * @returns {{code:string, bits:string, checksum:number}}
+   *          `code` is the payload as encoded.
+   *          `bits` is 11*(length + 2) + 13 characters of '0'/'1',
+   *          where '1' = dark bar.
+   *          `checksum` is the modulo-103 symbol value, handy for spot-checks.
+   */
+  function code128Encode(text) {
+    if (text === undefined || text === null) {
+      throw new Error('code128Encode: text is required');
+    }
+    var s = String(text);
+    if (s.length === 0) {
+      throw new Error('code128Encode: text must not be empty');
+    }
+
+    // Validate first, so a bad character is reported before any work is done.
+    // Iterating by code point keeps the message sane for Thai text and emoji,
+    // where one visible character can occupy two JavaScript string units.
+    var values = [];
+    for (var i = 0; i < s.length; i++) {
+      var cp = s.codePointAt(i);
+      if (cp > 0xffff) i++; // surrogate pair consumed
+      if (cp < 32 || cp > 126) {
+        throw new Error(
+          'code128Encode: character "' + String.fromCodePoint(cp) + '" ' +
+          '(U+' + cp.toString(16).toUpperCase() + ') is outside Code 128 ' +
+          'subset B, which carries printable ASCII 32..126 only'
+        );
+      }
+      values.push(cp - 32); // subset B: symbol value = ASCII code - 32
+    }
+
+    // Checksum: weight each data symbol by its 1-based position, add the start
+    // symbol's own value (weight 1), and reduce modulo 103.
+    var sum = __c128StartB;
+    for (var k = 0; k < values.length; k++) {
+      sum += (k + 1) * values[k];
+    }
+    var checksum = sum % 103;
+
+    var bits = __c128PatternBits(__c128Patterns[__c128StartB]);
+    for (var j = 0; j < values.length; j++) {
+      bits += __c128PatternBits(__c128Patterns[values[j]]);
+    }
+    bits += __c128PatternBits(__c128Patterns[checksum]);
+    bits += __c128PatternBits(__c128Patterns[__c128Stop]);
+
+    // Start + data + checksum are 11 modules each; Stop is 13.
+    var expected = 11 * (values.length + 2) + 13;
+    if (bits.length !== expected) {
+      throw new Error(
+        'code128Encode: internal error, produced ' + bits.length +
+        ' bits but expected ' + expected
+      );
+    }
+
+    return { code: s, bits: bits, checksum: checksum };
+  }
+
+  /* ===========================================================================
+   * SECTION 6 - CODE 39
+   * ======================================================================== */
+
+  /* ---------------------------------------------------------------------------
+   * 6.1 The pattern table
+   * ------------------------------------------------------------------------ */
+
+  // Code 39 is the one symbology here that needs no arithmetic at all: every
+  // character is an independent 9-element pattern, so the "encoder" is a table
+  // lookup and a join. Each pattern alternates bar, space, bar, space, ...
+  // starting with a bar, and exactly three of the nine elements are wide.
+  //
+  // 'n' = narrow (1 module), 'w' = wide (3 modules), so one character is
+  // 6*1 + 3*3 = 15 modules. Characters are separated by a single narrow light
+  // module (the inter-character gap).
+  //
+  // Note the five characters - . $ / + % and the * delimiter: for $ / + % all
+  // five bars are narrow and three of the four spaces are wide, which is what
+  // keeps them distinguishable from the alphanumerics.
+  var __c39Patterns = {
+    '0': 'nnnwwnwnn', '1': 'wnnwnnnnw', '2': 'nnwwnnnnw', '3': 'wnwwnnnnn',
+    '4': 'nnnwwnnnw', '5': 'wnnwwnnnn', '6': 'nnwwwnnnn', '7': 'nnnwnnwnw',
+    '8': 'wnnwnnwnn', '9': 'nnwwnnwnn',
+    'A': 'wnnnnwnnw', 'B': 'nnwnnwnnw', 'C': 'wnwnnwnnn', 'D': 'nnnnwwnnw',
+    'E': 'wnnnwwnnn', 'F': 'nnwnwwnnn', 'G': 'nnnnnwwnw', 'H': 'wnnnnwwnn',
+    'I': 'nnwnnwwnn', 'J': 'nnnnwwwnn', 'K': 'wnnnnnnww', 'L': 'nnwnnnnww',
+    'M': 'wnwnnnnwn', 'N': 'nnnnwnnww', 'O': 'wnnnwnnwn', 'P': 'nnwnwnnwn',
+    'Q': 'nnnnnnwww', 'R': 'wnnnnnwwn', 'S': 'nnwnnnwwn', 'T': 'nnnnwnwwn',
+    'U': 'wwnnnnnnw', 'V': 'nwwnnnnnw', 'W': 'wwwnnnnnn', 'X': 'nwnnwnnnw',
+    'Y': 'wwnnwnnnn', 'Z': 'nwwnwnnnn',
+    '-': 'nwnnnnwnw', '.': 'wwnnnnwnn', ' ': 'nwwnnnwnn', '$': 'nwnwnwnnn',
+    '/': 'nwnwnnnwn', '+': 'nwnnnwnwn', '%': 'nnnwnwnwn',
+    '*': 'nwnnwnwnn'  // start/stop delimiter, never part of the payload
+  };
+
+  // The 43 data characters, in the order that defines their mod-43 values.
+  // Only needed if the optional check character is ever switched on.
+  var __c39CheckAlphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%';
+
+  var __c39Narrow = 1;
+  var __c39Wide = 3;   // narrow:wide ratio 1:3
+
+  /* ---------------------------------------------------------------------------
+   * 6.2 Helpers
+   * ------------------------------------------------------------------------ */
+
+  // Expand one 'n'/'w' pattern into '0'/'1' modules. Elements alternate dark,
+  // light, dark, ... starting with dark.
+  function __c39PatternBits(pattern) {
+    var out = '';
+    for (var i = 0; i < 9; i++) {
+      var width = (pattern.charAt(i) === 'w') ? __c39Wide : __c39Narrow;
+      var module = (i % 2 === 0) ? '1' : '0';
+      for (var w = 0; w < width; w++) out += module;
+    }
+    return out;
+  }
+
+  // Optional mod-43 check character. Code 39 readers do not expect one unless
+  // they are configured for it, and an unexpected check character shows up as
+  // a stray trailing character in the decoded text - so this stays OFF by
+  // default and is exposed only as the `withCheck` flag below.
+  function __c39CheckChar(payload) {
+    var sum = 0;
+    for (var i = 0; i < payload.length; i++) {
+      sum += __c39CheckAlphabet.indexOf(payload.charAt(i));
+    }
+    return __c39CheckAlphabet.charAt(sum % 43);
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 6.3 Public Code 39 entry point
+   * ------------------------------------------------------------------------ */
+
+  /**
+   * Encode a Code 39 barcode.
+   *
+   * Lowercase input is upper-cased rather than rejected, because Code 39 has
+   * no lowercase alphabet and upper-casing is what every label printer does.
+   *
+   * @param {string} text        Uppercase A-Z, 0-9 and - . $ / + % SPACE.
+   * @param {boolean} withCheck  Optional, default false. When true a mod-43
+   *                             check character is appended. Leave it off
+   *                             unless the reader is configured to expect one.
+   * @returns {{code:string, bits:string}}
+   *          `code` is the upper-cased payload, WITHOUT the * delimiters -
+   *          that is what a decoder reports back.
+   *          `bits` includes the * start and stop patterns and the narrow gaps
+   *          between characters, '1' = dark bar.
+   */
+  function code39Encode(text, withCheck) {
+    if (text === undefined || text === null) {
+      throw new Error('code39Encode: text is required');
+    }
+    var s = String(text).toUpperCase();
+    if (s.length === 0) {
+      throw new Error('code39Encode: text must not be empty');
+    }
+
+    // Validate first, so a bad character is reported before any work is done.
+    // '*' is rejected as data: it is the delimiter, and letting it through
+    // would end the symbol early.
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      if (ch === '*') {
+        throw new Error(
+          'code39Encode: "*" is the Code 39 start/stop delimiter and cannot ' +
+          'appear in the data - it is added automatically'
+        );
+      }
+      if (!Object.prototype.hasOwnProperty.call(__c39Patterns, ch)) {
+        throw new Error(
+          'code39Encode: character "' + ch + '" is not in the Code 39 ' +
+          'character set, which is A-Z, 0-9 and - . $ / + % and space'
+        );
+      }
+    }
+
+    var payload = s;
+    if (withCheck) payload += __c39CheckChar(s);
+
+    // '*' + payload + '*', joined by one narrow light module each.
+    var chars = ('*' + payload + '*').split('');
+    var parts = [];
+    for (var j = 0; j < chars.length; j++) {
+      parts.push(__c39PatternBits(__c39Patterns[chars[j]]));
+    }
+    var bits = parts.join('0');
+
+    // Each of the chars.length characters is 15 modules, with one narrow gap
+    // between each neighbouring pair.
+    var expected = 15 * chars.length + (chars.length - 1);
+    if (bits.length !== expected) {
+      throw new Error(
+        'code39Encode: internal error, produced ' + bits.length +
+        ' bits but expected ' + expected
+      );
+    }
+
+    return { code: payload, bits: bits };
+  }
+
+  /* ===========================================================================
+   * Exports - exactly six globals.
    * ======================================================================== */
 
   global.qrEncode = qrEncode;
   global.ean13Encode = ean13Encode;
+  global.ean8Encode = ean8Encode;
+  global.upcaEncode = upcaEncode;
+  global.code128Encode = code128Encode;
+  global.code39Encode = code39Encode;
 
 }(typeof globalThis !== 'undefined' ? globalThis : this));
 
@@ -3302,8 +3779,10 @@ function makeBarcode(Z){
   const o=quietBorder(m,Math.round(module*8));
   m.delete();
   LAST_CODE_NAME=Z.type+'_'+e.code.replace(/[^A-Za-z0-9._-]/g,'')+'.png';
-  const warn=k.cvReadable?'':'   ('+(LANG==='en'?'OpenCV cannot read this one - the exported Python uses pyzbar'
-                                               :'OpenCV อ่านชนิดนี้ไม่ได้ โค้ด Python ที่ export ใช้ pyzbar')+')';
+  // kept short: the caption is drawn into the image, and a long one runs off
+  // the right edge. The full explanation lives in the panel beside the field.
+  const warn=k.cvReadable?'':'   '+(LANG==='en'?'- OpenCV cannot read this, use pyzbar'
+                                               :'- OpenCV อ่านไม่ได้ ใช้ pyzbar');
   return [o,k.label+'  '+e.code+'   (module '+module+' px)'+warn,k.type,e.code];
 }
 
@@ -5168,14 +5647,231 @@ function codeCodesNotes(Z){
              'The dictionary must match the printed markers exactly. A mismatch reads nothing at all, even from a perfectly sharp marker.')];
   if(Z.bar) n.push(L('ตัวอ่านบาร์โค้ดของ OpenCV ดูการไล่ระดับของขอบ ภาพถ่ายจากกล้องอ่านได้ดี แต่ไฟล์ภาพที่คมเป๊ะมักต้องเบลอเล็กน้อยก่อน ตัวแปร SOFTEN_BARCODE ทำหน้าที่นั้น',
     'OpenCV\'s barcode reader works on edge gradients. A photographed barcode reads well, but a pixel-perfect image file usually needs a slight blur first - that is what SOFTEN_BARCODE does.'));
+  if(Z.bar) n.push(Z.zbar
+    ? L('สคริปต์นี้ใช้ pyzbar อ่านบาร์โค้ด จึงอ่าน Code 128 และ Code 39 ได้ด้วย ต้องลง pip install pyzbar และบน Pi หรือ Ubuntu ต้อง sudo apt install libzbar0 ก่อน',
+        'This script reads barcodes with pyzbar, so Code 128 and Code 39 work too. It needs pip install pyzbar, plus sudo apt install libzbar0 on a Pi or Ubuntu.')
+    : L('ตัวอ่านบาร์โค้ดของ OpenCV รู้จักแค่ EAN-13, EAN-8, UPC-A และ UPC-E ไม่มีตัวอ่าน Code 128 หรือ Code 39 ถ้าต้องอ่านสองชนิดนั้น ให้ติ๊กตัวเลือก pyzbar ในหน้าเว็บแล้วรับโค้ดใหม่',
+        'OpenCV\'s barcode reader knows EAN-13, EAN-8, UPC-A and UPC-E only - there is no Code 128 or Code 39 reader in it. For those two, tick the pyzbar option on the page and export again.'));
   if(Z.mm>0) n.push(L('MARKER_MM แปลงพิกเซลเป็นมิลลิเมตรได้ก็ต่อเมื่อมาร์กเกอร์วางราบและขนานกับเซนเซอร์ ถ้าเอียง ตัวเลขจะผิด',
     'MARKER_MM converts pixels to millimetres only while the marker lies flat and parallel to the sensor. Tilt it and the number is wrong.'));
   return n;
 }
 
+/* The exported Python carries its own copy of the symbology tables. That is a
+   second implementation of what encoders.js does in the browser, on purpose:
+   the learner has to be able to read the script end to end and run it on a Pi
+   with nothing but opencv-python and numpy installed. Both copies are checked
+   against the same decoders - see _build/README.md. */
+const PY_C128_PATTERNS=[
+  '212222','222122','222221','121223','121322','131222','122213',
+  '122312','132212','221213','221312','231212','112232','122132',
+  '122231','113222','123122','123221','223211','221132','221231',
+  '213212','223112','312131','311222','321122','321221','312212',
+  '322112','322211','212123','212321','232121','111323','131123',
+  '131321','112313','132113','132311','211313','231113','231311',
+  '112133','112331','132131','113123','113321','133121','313121',
+  '211331','231131','213113','213311','213131','311123','311321',
+  '331121','312113','312311','332111','314111','221411','431111',
+  '111224','111422','121124','121421','141122','141221','112214',
+  '112412','122114','122411','142112','142211','241211','221114',
+  '413111','241112','134111','111242','121142','121241','114212',
+  '124112','124211','411212','421112','421211','212141','214121',
+  '412121','111143','111341','131141','114113','114311','411113',
+  '411311','113141','114131','311141','411131','211412','211214',
+  '211232','2331112'
+];
+const PY_C39_PATTERNS=[
+  ["'0'","nnnwwnwnn"],["'1'","wnnwnnnnw"],["'2'","nnwwnnnnw"],["'3'","wnwwnnnnn"],
+  ["'4'","nnnwwnnnw"],["'5'","wnnwwnnnn"],["'6'","nnwwwnnnn"],["'7'","nnnwnnwnw"],
+  ["'8'","wnnwnnwnn"],["'9'","nnwwnnwnn"],
+  ["'A'","wnnnnwnnw"],["'B'","nnwnnwnnw"],["'C'","wnwnnwnnn"],["'D'","nnnnwwnnw"],
+  ["'E'","wnnnwwnnn"],["'F'","nnwnwwnnn"],["'G'","nnnnnwwnw"],["'H'","wnnnnwwnn"],
+  ["'I'","nnwnnwwnn"],["'J'","nnnnwwwnn"],["'K'","wnnnnnnww"],["'L'","nnwnnnnww"],
+  ["'M'","wnwnnnnwn"],["'N'","nnnnwnnww"],["'O'","wnnnwnnwn"],["'P'","nnwnwnnwn"],
+  ["'Q'","nnnnnnwww"],["'R'","wnnnnnwwn"],["'S'","nnwnnnwwn"],["'T'","nnnnwnwwn"],
+  ["'U'","wwnnnnnnw"],["'V'","nwwnnnnnw"],["'W'","wwwnnnnnn"],["'X'","nwnnwnnnw"],
+  ["'Y'","wwnnwnnnn"],["'Z'","nwwnwnnnn"],
+  ["'-'","nwnnnnwnw"],["'.'","wwnnnnwnn"],["' '","nwwnnnwnn"],["'$'","nwnwnwnnn"],
+  ["'/'","nwnwnnnwn"],["'+'","nwnnnwnwn"],["'%'","nnnwnwnwn"],
+  ["'*'","nwnnwnwnn"]
+];
+
+/* The data tables the exported script needs, one symbology at a time - there
+   is no point printing the Code 128 table into a script that makes an EAN-8. */
+function barcodeTables(kind){
+  const o=[];
+  if(kind==='ean13'||kind==='ean8'||kind==='upca'){
+    o.push('# '+L('ตารางสัญลักษณ์ EAN/UPC: ซ้าย-ชุด A (L) ซ้าย-ชุด B (G) และขวา (R)',
+                  'The EAN/UPC symbol tables: left set A (L), left set B (G) and right (R)'));
+    o.push('EAN_L = ["0001101","0011001","0010011","0111101","0100011",');
+    o.push('         "0110001","0101111","0111011","0110111","0001011"]');
+    // UPC-A is built on the EAN-13 path below, so it needs the full EAN-13
+    // tables even though its own left half only ever uses set A.
+    if(kind!=='ean8'){
+      o.push('EAN_G = ["0100111","0110011","0011011","0100001","0011101",');
+      o.push('         "0111001","0000101","0010001","0001001","0010111"]');
+    }
+    o.push('EAN_R = ["1110010","1100110","1101100","1000010","1011100",');
+    o.push('         "1001110","1010000","1000100","1001000","1110100"]');
+    if(kind!=='ean8'){
+      o.push('# '+L('หลักแรกไม่ได้ถูกวาดเป็นแท่ง แต่บอกว่าหกหลักซ้ายใช้ตาราง L หรือ G สลับกันอย่างไร',
+                    'The first digit is never drawn as bars - it chooses the L/G pattern of the six left digits'));
+      o.push('EAN_PARITY = ["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG",');
+      o.push('              "LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"]');
+    }
+    o.push('GUARD_START, GUARD_CENTRE, GUARD_END = "101", "01010", "101"');
+    return o;
+  }
+  if(kind==='code128'){
+    o.push('# '+L('Code 128 มี 107 แพตเทิร์น: ค่า 0-102 คือตัวอักษร 103-105 คือ Start A/B/C และ 106 คือ Stop',
+                  'Code 128 has 107 patterns: values 0-102 are characters, 103-105 are Start A/B/C and 106 is Stop'));
+    o.push('# '+L('ตัวเลขในแพตเทิร์นคือความกว้างของแต่ละ element สลับ ดำ ขาว ดำ ขาว เริ่มด้วยดำ',
+                  'Each digit is one element width, alternating dark, light, dark, light, starting dark'));
+    o.push('C128_PATTERNS = [');
+    for(let i=0;i<PY_C128_PATTERNS.length;i+=7){
+      o.push('    '+PY_C128_PATTERNS.slice(i,i+7).map(p=>'"'+p+'"').join(', ')+',');
+    }
+    o.push(']');
+    o.push('C128_START_B = 104       # '+L('ใช้ชุด B ชุดเดียว ครอบคลุม ASCII 32-126 ทั้งหมด',
+                                          'subset B alone, which covers all of printable ASCII 32-126'));
+    o.push('C128_STOP = 106');
+    return o;
+  }
+  o.push('# '+L("Code 39 ไม่มีการคำนวณเลย ทุกตัวอักษรเป็นแพตเทิร์น 9 element อิสระ 'n' = แคบ 1 ช่อง 'w' = กว้าง 3 ช่อง",
+                "Code 39 needs no arithmetic at all - every character is an independent 9-element pattern. 'n' = narrow (1 module), 'w' = wide (3)"));
+  o.push('C39_PATTERNS = {');
+  for(let i=0;i<PY_C39_PATTERNS.length;i+=4){
+    o.push('    '+PY_C39_PATTERNS.slice(i,i+4).map(p=>p[0]+': "'+p[1]+'"').join(', ')+',');
+  }
+  o.push('}');
+  return o;
+}
+
+/* The encoder itself, again one symbology at a time. Each make_* returns
+   (bits, code) so render_bars can draw any of them. */
+function barcodeEncoderPy(kind){
+  const o=[];
+  if(kind==='ean13'||kind==='upca'){
+    o.push('def ean_check_digit(body):');
+    o.push('    '+Q+L('หลักตรวจสอบ mod 10: ถ่วงน้ำหนัก 1,3,1,3,... จากซ้าย แล้วเติมให้ครบสิบ',
+                      'The mod-10 check digit: weight the digits 1,3,1,3,... from the left, then bring the total up to a multiple of ten')+Q);
+    o.push('    total = sum((3 if i % 2 else 1) * int(c) for i, c in enumerate(body))');
+    o.push('    return str((10 - total % 10) % 10)');
+    o.push('');
+    o.push('');
+    o.push('def make_ean13(twelve):');
+    o.push('    if len(twelve) != 12 or not twelve.isdigit():');
+    o.push('        raise ValueError("EAN-13 needs exactly 12 digits")');
+    o.push('    code = twelve + ean_check_digit(twelve)');
+    o.push('    parity = EAN_PARITY[int(code[0])]');
+    o.push('    bits = GUARD_START');
+    o.push('    for i, ch in enumerate(code[1:7]):');
+    o.push('        bits += (EAN_L if parity[i] == "L" else EAN_G)[int(ch)]');
+    o.push('    bits += GUARD_CENTRE');
+    o.push('    for ch in code[7:]:');
+    o.push('        bits += EAN_R[int(ch)]');
+    o.push('    bits += GUARD_END');
+    o.push('    return bits, code                          # 95 '+L('ช่อง','modules'));
+    if(kind==='upca'){
+      o.push('');
+      o.push('');
+      o.push('def make_upca(eleven):');
+      o.push('    '+Q+L('UPC-A คือ EAN-13 ที่หลักแรกเป็น 0 เป๊ะ ๆ เลข 0 นั้นเลือกพาริตี LLLLLL ซึ่งก็คือครึ่งซ้ายของ UPC-A พอดี จึงสร้างต่อจากทาง EAN-13 ได้เลย',
+                        'A UPC-A is exactly an EAN-13 whose leading digit is 0 - that 0 selects the LLLLLL parity, which is precisely UPC-A\'s left half, so this is built on the EAN-13 path')+Q);
+      o.push('    if len(eleven) != 11 or not eleven.isdigit():');
+      o.push('        raise ValueError("UPC-A needs exactly 11 digits")');
+      o.push('    bits, ean = make_ean13("0" + eleven)');
+      o.push('    return bits, ean[1:]                       # '+L('คืนเลข 12 หลักแบบ UPC-A ไม่ใช่ 13 หลักแบบ EAN-13',
+                                                                  'hand back the 12-digit UPC-A number, not the 13-digit EAN-13 one'));
+    }
+    return o;
+  }
+  if(kind==='ean8'){
+    o.push('def ean8_check_digit(seven):');
+    o.push('    '+Q+L('กฎเดียวกับ EAN-13 แต่น้ำหนักเริ่มที่ 3 เพราะมีเจ็ดหลักก่อนหลักตรวจสอบ ไม่ใช่สิบสอง',
+                      'The same mod-10 rule as EAN-13, but the weights start at 3 because there are seven digits before the check digit instead of twelve')+Q);
+    o.push('    total = sum((1 if i % 2 else 3) * int(c) for i, c in enumerate(seven))');
+    o.push('    return str((10 - total % 10) % 10)');
+    o.push('');
+    o.push('');
+    o.push('def make_ean8(seven):');
+    o.push('    '+Q+L('EAN-8 ไม่มีตารางพาริตี ครึ่งซ้ายใช้ชุด A ตลอด','EAN-8 has no parity table at all - the left half always uses set A')+Q);
+    o.push('    if len(seven) != 7 or not seven.isdigit():');
+    o.push('        raise ValueError("EAN-8 needs exactly 7 digits")');
+    o.push('    code = seven + ean8_check_digit(seven)');
+    o.push('    bits = GUARD_START');
+    o.push('    for ch in code[:4]:');
+    o.push('        bits += EAN_L[int(ch)]');
+    o.push('    bits += GUARD_CENTRE');
+    o.push('    for ch in code[4:]:');
+    o.push('        bits += EAN_R[int(ch)]');
+    o.push('    bits += GUARD_END');
+    o.push('    return bits, code                          # 67 '+L('ช่อง','modules'));
+    return o;
+  }
+  if(kind==='code128'){
+    o.push('def c128_pattern_bits(pattern):');
+    o.push('    '+Q+L('กาง element แต่ละตัวออกเป็นช่อง สลับ ดำ ขาว ดำ ขาว เริ่มด้วยดำ',
+                      'Expand one width pattern into modules - elements alternate dark, light, dark, starting dark')+Q);
+    o.push('    return "".join(("1" if i % 2 == 0 else "0") * int(w)');
+    o.push('                   for i, w in enumerate(pattern))');
+    o.push('');
+    o.push('');
+    o.push('def make_code128(text):');
+    o.push('    '+Q+L('Code 128 ชุด B: Start B, ตัวอักษรละหนึ่งสัญลักษณ์, checksum, Stop',
+                      'Code 128 subset B: Start B, one symbol per character, the checksum, then Stop')+Q);
+    o.push('    if not text:');
+    o.push('        raise ValueError("Code 128 text must not be empty")');
+    o.push('    values = []');
+    o.push('    for ch in text:');
+    o.push('        if not (32 <= ord(ch) <= 126):');
+    o.push('            raise ValueError(');
+    o.push('                "%r is outside Code 128 subset B, which carries printable ASCII 32..126 only" % ch)');
+    o.push('        values.append(ord(ch) - 32)        # '+L('ชุด B: ค่าสัญลักษณ์ = ASCII - 32','subset B: symbol value = ASCII code - 32'));
+    o.push('    # '+L('checksum: ถ่วงน้ำหนักแต่ละตัวด้วยตำแหน่งเริ่มจาก 1 บวกค่าของ Start แล้ว mod 103',
+                      'Checksum: weight each data symbol by its 1-based position, add the start symbol value, reduce mod 103'));
+    o.push('    checksum = (C128_START_B');
+    o.push('                + sum((i + 1) * v for i, v in enumerate(values))) % 103');
+    o.push('    symbols = [C128_START_B] + values + [checksum, C128_STOP]');
+    o.push('    bits = "".join(c128_pattern_bits(C128_PATTERNS[s]) for s in symbols)');
+    o.push('    print("[CHECKSUM]", checksum)');
+    o.push('    return bits, text                          # 11 * (n + 2) + 13 '+L('ช่อง','modules'));
+    return o;
+  }
+  o.push('def c39_pattern_bits(pattern):');
+  o.push('    '+Q+L("กาง 'n'/'w' ออกเป็นช่อง สลับ ดำ ขาว เริ่มด้วยดำ อัตราแคบ:กว้าง = 1:3",
+                    "Expand one 'n'/'w' pattern into modules, alternating dark, light, starting dark. Narrow:wide ratio is 1:3")+Q);
+  o.push('    return "".join(("1" if i % 2 == 0 else "0") * (3 if w == "w" else 1)');
+  o.push('                   for i, w in enumerate(pattern))');
+  o.push('');
+  o.push('');
+  o.push('def make_code39(text):');
+  o.push('    '+Q+L('Code 39 ไม่มีตัวพิมพ์เล็ก จึงแปลงเป็นตัวพิมพ์ใหญ่ให้ ไม่ใช่ปฏิเสธ เหมือนที่เครื่องพิมพ์ฉลากทำ',
+                    'Code 39 has no lowercase alphabet, so lowercase is upper-cased rather than rejected - which is what every label printer does')+Q);
+  o.push('    payload = (text or "").upper()');
+  o.push('    if not payload:');
+  o.push('        raise ValueError("Code 39 text must not be empty")');
+  o.push('    for ch in payload:');
+  o.push('        if ch == "*":');
+  o.push('            raise ValueError(');
+  o.push('                "* is the Code 39 start/stop delimiter and cannot appear in the data")');
+  o.push('        if ch not in C39_PATTERNS:');
+  o.push('            raise ValueError(');
+  o.push('                "%r is not in the Code 39 character set, which is A-Z, 0-9 and - . $ / + %% and space" % ch)');
+  o.push('    # '+L('* ต้นและท้าย เชื่อมแต่ละตัวด้วยช่องขาวแคบหนึ่งช่อง',
+                    'A * at each end, with one narrow light module joining every neighbouring pair'));
+  o.push('    bits = "0".join(c39_pattern_bits(C39_PATTERNS[ch])');
+  o.push('                    for ch in "*" + payload + "*")');
+  o.push('    return bits, payload                       # '+L('ตัวคั่น * ไม่ถูกนับเป็นข้อมูล ตัวอ่านก็ไม่คืนมา',
+                                                              'the * delimiters are not data and a decoder does not report them'));
+  return o;
+}
+
 function codeCodesMake(P){
   const G=P.gen, Z=P.codes;
-  const what={aruco:'ArUco marker',qr:'QR code',ean13:'EAN-13 barcode'}[Z.type];
+  const bk=BARCODE_KIND[Z.type];
+  const what=bk ? (bk.label+' barcode')
+                : {aruco:'ArUco marker',qr:'QR code'}[Z.type];
   const o=header('Codes & Markers - generate a '+what,G,
     [L('สคริปต์นี้ "สร้าง" โค้ดไว้พิมพ์ ไม่ได้อ่านจากกล้อง ถ้าต้องการตัวอ่าน ให้สลับโหมดในหน้าเว็บเป็น "อ่านโค้ดจากภาพ"',
        'This script GENERATES a code for printing - it does not read one. For a reader, switch the page back to reading mode.'),
@@ -5191,8 +5887,12 @@ function codeCodesMake(P){
     o.push('QR_TEXT = "'+String(Z.text).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"');
     o.push('# '+L('ระดับกู้คืนที่เลือกไว้คือ','Error-correction level chosen on the page:')+' '+Z.ec);
     o.push('QR_CORRECTION = cv2.QRCodeEncoder_CORRECT_LEVEL_'+Z.ec);
+  }else if(bk.numeric){
+    const want={ean13:12,ean8:7,upca:11}[Z.type];
+    o.push('BARCODE_DIGITS = "'+String(Z.digits).replace(/[^0-9]/g,'').slice(0,want)+'"   # '+
+      L(want+' หลัก ระบบเติมหลักตรวจสอบให้',want+' digits, the check digit is added for you'));
   }else{
-    o.push('EAN_DIGITS = "'+String(Z.digits).replace(/[^0-9]/g,'').slice(0,12)+'"   # '+L('12 หลัก ระบบเติมหลักตรวจสอบให้','12 digits, the check digit is added for you'));
+    o.push('BARCODE_TEXT = "'+String(Z.bartext).replace(/\\/g,'\\\\').replace(/"/g,'\\"')+'"');
   }
   o.push('SIZE_PX = '+Z.px);
   o.push('OUTPUT = "'+LAST_CODE_NAME.replace(/"/g,'')+'"');
@@ -5233,50 +5933,32 @@ function codeCodesMake(P){
     o.push('    pad = 4 * factor                          # '+L('ขอบเงียบมาตรฐานของ QR คือ 4 ช่อง','the standard QR quiet zone is 4 modules'));
     o.push('    return cv2.copyMakeBorder(big, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)');
   }else{
-    o.push('# '+L('ตาราง EAN-13 สามชุด: ซ้าย-คี่ (L) ซ้าย-คู่ (G) และขวา (R)','The three EAN-13 tables: left-odd (L), left-even (G) and right (R)'));
-    o.push('EAN_L = ["0001101","0011001","0010011","0111101","0100011",');
-    o.push('         "0110001","0101111","0111011","0110111","0001011"]');
-    o.push('EAN_G = ["0100111","0110011","0011011","0100001","0011101",');
-    o.push('         "0111001","0000101","0010001","0001001","0010111"]');
-    o.push('EAN_R = ["1110010","1100110","1101100","1000010","1011100",');
-    o.push('         "1001110","1010000","1000100","1001000","1110100"]');
-    o.push('# '+L('หลักแรกไม่ได้ถูกวาดเป็นแท่ง แต่บอกว่าหกหลักซ้ายใช้ตาราง L หรือ G สลับกันอย่างไร',
-                 'The first digit is never drawn as bars - it chooses the L/G pattern of the six left digits'));
-    o.push('EAN_PARITY = ["LLLLLL","LLGLGG","LLGGLG","LLGGGL","LGLLGG",');
-    o.push('              "LGGLLG","LGGGLL","LGLGLG","LGLGGL","LGGLGL"]');
+    o.push(...barcodeTables(Z.type));
     o.push('');
     o.push('');
-    o.push('def ean13_check_digit(twelve):');
-    o.push('    total = sum((3 if i % 2 else 1) * int(c) for i, c in enumerate(twelve))');
-    o.push('    return str((10 - total % 10) % 10)');
+    o.push(...barcodeEncoderPy(Z.type));
     o.push('');
     o.push('');
-    o.push('def make_ean13(twelve):');
-    o.push('    if len(twelve) != 12 or not twelve.isdigit():');
-    o.push('        raise ValueError("'+L('ต้องเป็นตัวเลข 12 หลัก','EAN-13 needs exactly 12 digits')+'")');
-    o.push('    code = twelve + ean13_check_digit(twelve)');
-    o.push('    parity = EAN_PARITY[int(code[0])]');
-    o.push('    bits = "101"');
-    o.push('    for i, ch in enumerate(code[1:7]):');
-    o.push('        bits += (EAN_L if parity[i] == "L" else EAN_G)[int(ch)]');
-    o.push('    bits += "01010"                            # '+L('ตัวคั่นกลาง','centre guard'));
-    o.push('    for ch in code[7:]:');
-    o.push('        bits += EAN_R[int(ch)]');
-    o.push('    bits += "101"');
-    o.push('');
-    o.push('    # '+L('แท่งบางอ่านง่ายกว่าแท่งหนามาก จึงกดความกว้างไว้ที่ 2-4 พิกเซล',
-                      'Thin bars read far more reliably than thick ones, so the module is held to 2-4 px'));
-    o.push('    module = min(4, max(2, round(SIZE_PX / 115)))');
-    o.push('    quiet = 10');
-    o.push('    width = (95 + 2 * quiet) * module');
-    o.push('    height = max(90, int(width * 0.42))');
-    o.push('    img = np.full((height, width), 255, np.uint8)');
+    o.push('def render_bars(bits, code):');
+    o.push('    '+Q+L('ทุกสัญลักษณ์ 1 มิติ วาดเหมือนกันหมด ต่างกันแค่จำนวนแท่ง จึงใช้ตัววาดตัวเดียว',
+                      'Every 1-D symbology draws the same way - only the module count differs - so one renderer covers all of them')+Q);
+    o.push('    # '+L('แท่งบางอ่านง่ายกว่าแท่งหนามาก จึงกดความกว้างไว้ที่ 2-4 พิกเซล แล้วไปขยายตอนสั่งพิมพ์',
+                      'Thin bars read far more reliably than thick ones, so the module is held to 2-4 px - scale it up in the print dialog instead'));
+    o.push('    quiet = 10                                 # '+L('ขอบเงียบอย่างน้อย 10 ช่องตามสเปก','the spec asks for at least 10 modules of quiet zone'));
+    o.push('    module = min(4, max(2, round(SIZE_PX / (len(bits) + 2 * quiet))))');
+    o.push('    width = (len(bits) + 2 * quiet) * module');
+    o.push('    bar_h = max(90, int(width * 0.34))');
+    o.push('    text_h = int(module * 9)');
+    o.push('    img = np.full((bar_h + text_h, width), 255, np.uint8)');
     o.push('    for i, bit in enumerate(bits):');
     o.push('        if bit == "1":');
     o.push('            x = (quiet + i) * module');
-    o.push('            img[:, x:x + module] = 0');
+    o.push('            img[:bar_h, x:x + module] = 0');
+    o.push('    # '+L('บรรทัดตัวหนังสือใต้แท่ง เหมือนฉลากจริง เพื่อให้คนอ่านทวนได้','the human-readable line a real label carries, so a person can check it too'));
+    o.push('    cv2.putText(img, code, (quiet * module, bar_h + text_h - int(module * 2)),');
+    o.push('                cv2.FONT_HERSHEY_SIMPLEX, module * 0.16, 0, max(1, round(module / 2.5)), cv2.LINE_AA)');
     o.push('    pad = module * 8');
-    o.push('    print("[CODE]", code)');
+    o.push('    print("[CODE]", code, len(bits), "modules")');
     o.push('    return cv2.copyMakeBorder(img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=255)');
   }
   o.push('');
@@ -5300,7 +5982,9 @@ function codeCodesMake(P){
   }else if(Z.type==='qr'){
     o.push('    img = make_qr()');
   }else{
-    o.push('    img = make_ean13(EAN_DIGITS)');
+    o.push('    img = render_bars(*'+{ean13:'make_ean13(BARCODE_DIGITS)',ean8:'make_ean8(BARCODE_DIGITS)',
+      upca:'make_upca(BARCODE_DIGITS)',code128:'make_code128(BARCODE_TEXT)',
+      code39:'make_code39(BARCODE_TEXT)'}[Z.type]+')');
   }
   o.push('    cv2.imwrite(args.out, img)');
   o.push('    print("[SAVED]", os.path.abspath(args.out), img.shape[1], "x", img.shape[0])');
@@ -5350,7 +6034,7 @@ function codeCodes(P){
     o.push('    cv2.aruco.DetectorParameters())');
   }
   if(Z.qr) o.push('QR_DETECTOR = cv2.QRCodeDetector()');
-  if(Z.bar) o.push('BARCODE_DETECTOR = cv2.barcode.BarcodeDetector()');
+  if(Z.bar&&!Z.zbar) o.push('BARCODE_DETECTOR = cv2.barcode.BarcodeDetector()');
   o.push('');
   o.push('');
   o.push('def draw_quad(image, pts, color, label):');
@@ -5407,10 +6091,40 @@ function codeCodes(P){
     o.push('            found.append({"type": "QR", "value": text, "x": int(cx), "y": int(cy)})');
     o.push('');
   }
-  if(Z.bar){
+  if(Z.bar&&Z.zbar){
+    o.push('    if READ_BARCODE:');
+    o.push('        # '+L('pyzbar อ่านได้ครบทั้ง EAN-13, EAN-8, UPC-A, Code 128, Code 39 และ ITF ซึ่งเป็นเหตุผลที่ต้องใช้ตัวนี้ ตัวอ่านของ OpenCV รู้จักแค่ตระกูล EAN/UPC',
+                          'pyzbar reads EAN-13, EAN-8, UPC-A, Code 128, Code 39 and ITF - which is the whole reason it is here. OpenCV\'s own reader knows only the EAN/UPC family.'));
+    o.push('        # '+L('pyzbar จุกจิกน้อยกว่า OpenCV มาก แต่เบลอไว้ก็ไม่เสียหาย ใช้ชุดเดิมเพื่อให้พฤติกรรมตรงกัน',
+                          'pyzbar is far less fussy than OpenCV, but the same blur ladder is kept so both paths behave alike.'));
+    o.push('        attempts = [5, 7] if SOFTEN_BARCODE else [0]');
+    o.push('        symbols = []');
+    o.push('        for k in attempts:');
+    o.push('            source = cv2.GaussianBlur(gray, (k, k), 0) if k else gray');
+    o.push('            symbols = pyzbar.decode(source)');
+    o.push('            if symbols:');
+    o.push('                break');
+    o.push('        for sym in symbols:');
+    if(Z.qr){
+      o.push('            if READ_QR and sym.type == "QRCODE":');
+      o.push('                continue        # '+L('zbar อ่าน QR ได้ด้วย ตัวอ่าน QR ข้างบนจัดการไปแล้ว ไม่ต้องนับซ้ำ',
+                                                   'zbar reads QR codes too, and the QR pass above already handled it - do not count it twice'));
+    }
+    o.push('            # '+L('pyzbar คืนมาเป็น polygon ไม่ใช่สี่มุมเสมอ จึงใช้กรอบสี่เหลี่ยมของมันวาด',
+                             'pyzbar hands back a polygon rather than four corners, so draw its bounding box'));
+    o.push('            x, y, w, h = sym.rect');
+    o.push('            quad = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]');
+    o.push('            value = sym.data.decode("utf-8", "replace")');
+    o.push('            draw_quad(result, quad, GREEN, sym.type)');
+    o.push('            found.append({"type": sym.type, "value": value,');
+    o.push('                          "x": int(x + w / 2), "y": int(y + h / 2)})');
+    o.push('');
+  }else if(Z.bar){
     o.push('    if READ_BARCODE:');
     o.push('        # '+L('วัดมาแล้ว: ภาพที่คมมาก เบลอ 3x3 จะ "เจอ" แท่งแต่ถอดรหัสไม่ได้ 5x5 ถึงจะถอดได้ 7x7 ไว้เผื่อแท่งหนา',
                           'Measured: on a very crisp image a 3x3 blur FINDS the bars but fails to decode them. 5x5 decodes; 7x7 is the fallback for thicker bars.'));
+    o.push('        # '+L('ตัวอ่านของ OpenCV รู้จักแค่ EAN-13, EAN-8, UPC-A และ UPC-E ไม่มีตัวอ่าน Code 128 หรือ Code 39 ถ้าต้องอ่านสองชนิดนั้น ให้ติ๊ก pyzbar ในหน้าเว็บ',
+                          'OpenCV\'s reader knows EAN-13, EAN-8, UPC-A and UPC-E only - it has no Code 128 or Code 39 reader at all. Tick the pyzbar option on the page if you need those two.'));
     o.push('        attempts = [5, 7] if SOFTEN_BARCODE else [0]');
     o.push('        values, types, points = [], [], None');
     o.push('        for k in attempts:');
@@ -5494,10 +6208,12 @@ function paramSummary(P){
   }else if(TAB==='codes'){
     const Z=P.codes;
     if(Z.mode==='make'){
-      rows.push([en?'Making':'กำลังสร้าง', {aruco:'ArUco',qr:'QR',ean13:'EAN-13'}[Z.type]]);
+      const bk=BARCODE_KIND[Z.type];
+      rows.push([en?'Making':'กำลังสร้าง', bk?bk.label:{aruco:'ArUco',qr:'QR'}[Z.type]]);
       if(Z.type==='aruco') rows.push(['Dictionary', DICT_NAME[Z.dict]||'-'],['id', ''+Z.id]);
       if(Z.type==='qr') rows.push([en?'Error correction':'ระดับกู้คืน', Z.ec]);
-      if(Z.type==='ean13') rows.push([en?'Digits':'ตัวเลข', Z.digits]);
+      if(bk) rows.push([en?'Payload':'ข้อมูล', bk.numeric?Z.digits:Z.bartext]);
+      if(bk&&!bk.cvReadable) rows.push([en?'Read back with':'อ่านกลับด้วย','pyzbar'+(en?' (OpenCV cannot)':' (OpenCV อ่านไม่ได้)')]);
     }else{
       const want=[]; if(Z.aruco) want.push('ArUco'); if(Z.qr) want.push('QR'); if(Z.bar) want.push('Barcode');
       rows.push([en?'Reading':'กำลังอ่าน', want.length?want.join(' + '):(en?'nothing selected':'ยังไม่ได้เลือก')]);
