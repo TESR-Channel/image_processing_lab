@@ -1,19 +1,29 @@
 /* =============================================================================
  * TESR Image Processing Lab - encoders.js
  * -----------------------------------------------------------------------------
- * Dependency-free QR Code and EAN-13 encoders for the browser teaching tool.
+ * Dependency-free QR Code and 1D barcode encoders for the browser teaching tool.
  *
  * No imports, no npm packages, no build step. Drop this file in a <script> tag
- * (or load it in Node with require/import of the file path) and two globals
+ * (or load it in Node with require/import of the file path) and six globals
  * appear:
  *
  *   qrEncode(text, ecLevel)  ->  { version, ecLevel, mask, size, modules }
  *   ean13Encode(digits)      ->  { code, bits }
+ *   ean8Encode(digits)       ->  { code, bits }
+ *   upcaEncode(digits)       ->  { code, bits }
+ *   code128Encode(text)      ->  { code, bits, checksum }
+ *   code39Encode(text)       ->  { code, bits }
+ *
+ * Every 1D encoder returns the same `{ code, bits }` shape - `bits` is a string
+ * of '0'/'1' where '1' is a dark module, no quiet zone included - so a single
+ * renderer can draw all five of them.
  *
  * Everything else lives inside the IIFE below, so nothing else can collide.
- * The few symbols that must be reachable for debugging are prefixed __qr / __ean.
+ * The few symbols that must be reachable for debugging are prefixed
+ * __qr / __ean / __upca / __c128 / __c39.
  *
- * References: ISO/IEC 18004 (QR Code) and ISO/IEC 15420 (EAN/UPC).
+ * References: ISO/IEC 18004 (QR Code), ISO/IEC 15420 (EAN/UPC),
+ * ISO/IEC 15417 (Code 128) and ISO/IEC 16388 (Code 39).
  * ========================================================================== */
 
 (function (global) {
@@ -798,10 +808,431 @@
   }
 
   /* ===========================================================================
-   * Exports - exactly two globals.
+   * SECTION 3 - EAN-8
+   * ======================================================================== */
+
+  /* ---------------------------------------------------------------------------
+   * 3.1 Structure
+   * ------------------------------------------------------------------------ */
+
+  // EAN-8 is the short form of EAN-13: four digits on each side instead of six,
+  // and no 13th digit to smuggle in. Because there is nothing to encode in the
+  // choice of alphabet, the left half always uses set A (__eanL) - there is no
+  // parity table here at all. The symbol sets themselves are shared with
+  // EAN-13 above, which is why this section is so short.
+  //
+  //   101 + 4*7 + 01010 + 4*7 + 101 = 3 + 28 + 5 + 28 + 3 = 67 modules.
+
+  /* ---------------------------------------------------------------------------
+   * 3.2 Check digit
+   * ------------------------------------------------------------------------ */
+
+  // Same modulo-10 rule as EAN-13, but the weights start at 3 rather than 1
+  // because there are seven digits before the check digit instead of twelve.
+  // The weight of the digit immediately left of the check digit is always 3.
+  function __ean8CheckDigit(first7) {
+    var sum = 0;
+    for (var i = 0; i < 7; i++) {
+      var d = first7.charCodeAt(i) - 48;
+      sum += (i % 2 === 0) ? d * 3 : d;
+    }
+    return (10 - (sum % 10)) % 10;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 3.3 Public EAN-8 entry point
+   * ------------------------------------------------------------------------ */
+
+  /**
+   * Encode an EAN-8 barcode.
+   *
+   * @param {string} digits  7 digits (check digit is computed) or 8 digits
+   *                         (check digit is verified).
+   * @returns {{code:string, bits:string}}
+   *          `code` is the full 8-digit number.
+   *          `bits` is 67 characters of '0'/'1', left guard to right guard,
+   *          where '1' = dark bar.
+   */
+  function ean8Encode(digits) {
+    var s = String(digits === undefined || digits === null ? '' : digits).trim();
+
+    if (!/^[0-9]+$/.test(s)) {
+      throw new Error('ean8Encode: input must contain digits only (got "' + s + '")');
+    }
+    if (s.length !== 7 && s.length !== 8) {
+      throw new Error(
+        'ean8Encode: input must be 7 digits (check digit computed) or ' +
+        '8 digits (check digit verified), got ' + s.length + ' digits'
+      );
+    }
+
+    var code;
+    if (s.length === 7) {
+      code = s + String(__ean8CheckDigit(s));
+    } else {
+      var expected = __ean8CheckDigit(s.slice(0, 7));
+      var given = s.charCodeAt(7) - 48;
+      if (expected !== given) {
+        throw new Error(
+          'ean8Encode: check digit mismatch for "' + s + '" - expected ' +
+          expected + ' but got ' + given
+        );
+      }
+      code = s;
+    }
+
+    var bits = __eanGuardStart;
+    // Left half: digits 1..4, always alphabet L (set A).
+    for (var i = 0; i < 4; i++) {
+      bits += __eanL[code.charCodeAt(i) - 48];
+    }
+    bits += __eanGuardCentre;
+    // Right half: digits 5..8, always alphabet R (set C).
+    for (var j = 0; j < 4; j++) {
+      bits += __eanR[code.charCodeAt(4 + j) - 48];
+    }
+    bits += __eanGuardEnd;
+
+    // 3 + 4*7 + 5 + 4*7 + 3 = 67. Guard against a table typo.
+    if (bits.length !== 67) {
+      throw new Error('ean8Encode: internal error, produced ' + bits.length + ' bits');
+    }
+
+    return { code: code, bits: bits };
+  }
+
+  /* ===========================================================================
+   * SECTION 4 - UPC-A
+   * ======================================================================== */
+
+  /**
+   * Encode a UPC-A barcode.
+   *
+   * UPC-A is exactly an EAN-13 whose leading digit is 0: that leading 0 selects
+   * the parity pattern 'LLLLLL', which is precisely UPC-A's left half. So this
+   * function is deliberately built on the EAN-13 path above - we prepend the 0,
+   * call ean13Encode, and hand back its 95 bits unchanged. The only work left
+   * is to strip the 0 again so the caller gets the 12-digit UPC-A number rather
+   * than a 13-digit EAN-13 one.
+   *
+   * The EAN-13 check digit rule weights the twelve digits 1,3,1,3,... from the
+   * left. With a 0 in front, the first real UPC-A digit lands on weight 3,
+   * which is UPC-A's own 3,1,3,1,... rule - so no separate check digit code is
+   * needed either.
+   *
+   * @param {string} digits  11 digits (check digit is computed) or 12 digits
+   *                         (check digit is verified).
+   * @returns {{code:string, bits:string}}
+   *          `code` is the full 12-digit number (NOT the 13-digit EAN-13 form).
+   *          `bits` is 95 characters of '0'/'1', where '1' = dark bar.
+   */
+  function upcaEncode(digits) {
+    var s = String(digits === undefined || digits === null ? '' : digits).trim();
+
+    if (!/^[0-9]+$/.test(s)) {
+      throw new Error('upcaEncode: input must contain digits only (got "' + s + '")');
+    }
+    if (s.length !== 11 && s.length !== 12) {
+      throw new Error(
+        'upcaEncode: input must be 11 digits (check digit computed) or ' +
+        '12 digits (check digit verified), got ' + s.length + ' digits'
+      );
+    }
+
+    // Verify the check digit here rather than letting ean13Encode do it, so the
+    // error message names upcaEncode and quotes the 12-digit input the caller
+    // actually passed.
+    if (s.length === 12) {
+      var expected = __eanCheckDigit('0' + s.slice(0, 11));
+      var given = s.charCodeAt(11) - 48;
+      if (expected !== given) {
+        throw new Error(
+          'upcaEncode: check digit mismatch for "' + s + '" - expected ' +
+          expected + ' but got ' + given
+        );
+      }
+    }
+
+    var ean = ean13Encode('0' + s);
+
+    return { code: ean.code.slice(1), bits: ean.bits };
+  }
+
+  /* ===========================================================================
+   * SECTION 5 - CODE 128
+   * ======================================================================== */
+
+  /* ---------------------------------------------------------------------------
+   * 5.1 The pattern table
+   * ------------------------------------------------------------------------ */
+
+  // Code 128 has 107 patterns: symbol values 0..102 (the printable characters
+  // and the control codes), then 103/104/105 = Start A/B/C and 106 = Stop.
+  //
+  // Each entry lists element widths in modules, alternating dark, light, dark,
+  // light, ... starting with dark. Values 0..105 have six elements summing to
+  // 11 modules; the Stop pattern has seven elements summing to 13.
+  //
+  // We only implement subset B here, where symbol value = ASCII code - 32,
+  // covering the printable range 32..126. Subsets A and C are left out
+  // deliberately: B alone handles everything a label needs, and mixing subsets
+  // would mean shift/latch logic that obscures the lesson.
+  var __c128Patterns = [
+    '212222', '222122', '222221', '121223', '121322', '131222', '122213',
+    '122312', '132212', '221213', '221312', '231212', '112232', '122132',
+    '122231', '113222', '123122', '123221', '223211', '221132', '221231',
+    '213212', '223112', '312131', '311222', '321122', '321221', '312212',
+    '322112', '322211', '212123', '212321', '232121', '111323', '131123',
+    '131321', '112313', '132113', '132311', '211313', '231113', '231311',
+    '112133', '112331', '132131', '113123', '113321', '133121', '313121',
+    '211331', '231131', '213113', '213311', '213131', '311123', '311321',
+    '331121', '312113', '312311', '332111', '314111', '221411', '431111',
+    '111224', '111422', '121124', '121421', '141122', '141221', '112214',
+    '112412', '122114', '122411', '142112', '142211', '241211', '221114',
+    '413111', '241112', '134111', '111242', '121142', '121241', '114212',
+    '124112', '124211', '411212', '421112', '421211', '212141', '214121',
+    '412121', '111143', '111341', '131141', '114113', '114311', '411113',
+    '411311', '113141', '114131', '311141', '411131', '211412', '211214',
+    '211232', '2331112'
+  ];
+
+  var __c128StartB = 104;
+  var __c128Stop = 106;
+
+  /* ---------------------------------------------------------------------------
+   * 5.2 Helpers
+   * ------------------------------------------------------------------------ */
+
+  // Expand one width pattern into '0'/'1' modules. Elements alternate dark,
+  // light, dark, ... so the element index decides the colour and the digit
+  // decides how many modules of it to emit.
+  function __c128PatternBits(pattern) {
+    var out = '';
+    for (var i = 0; i < pattern.length; i++) {
+      var width = pattern.charCodeAt(i) - 48;
+      var module = (i % 2 === 0) ? '1' : '0';
+      for (var w = 0; w < width; w++) out += module;
+    }
+    return out;
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 5.3 Public Code 128 entry point
+   * ------------------------------------------------------------------------ */
+
+  /**
+   * Encode a Code 128 subset B barcode.
+   *
+   * Symbol layout: Start B, one symbol per character, checksum, Stop.
+   * The checksum is (startValue + sum(position * value)) modulo 103, with the
+   * first data character at position 1.
+   *
+   * @param {string} text  Printable ASCII only, character codes 32..126.
+   * @returns {{code:string, bits:string, checksum:number}}
+   *          `code` is the payload as encoded.
+   *          `bits` is 11*(length + 2) + 13 characters of '0'/'1',
+   *          where '1' = dark bar.
+   *          `checksum` is the modulo-103 symbol value, handy for spot-checks.
+   */
+  function code128Encode(text) {
+    if (text === undefined || text === null) {
+      throw new Error('code128Encode: text is required');
+    }
+    var s = String(text);
+    if (s.length === 0) {
+      throw new Error('code128Encode: text must not be empty');
+    }
+
+    // Validate first, so a bad character is reported before any work is done.
+    // Iterating by code point keeps the message sane for Thai text and emoji,
+    // where one visible character can occupy two JavaScript string units.
+    var values = [];
+    for (var i = 0; i < s.length; i++) {
+      var cp = s.codePointAt(i);
+      if (cp > 0xffff) i++; // surrogate pair consumed
+      if (cp < 32 || cp > 126) {
+        throw new Error(
+          'code128Encode: character "' + String.fromCodePoint(cp) + '" ' +
+          '(U+' + cp.toString(16).toUpperCase() + ') is outside Code 128 ' +
+          'subset B, which carries printable ASCII 32..126 only'
+        );
+      }
+      values.push(cp - 32); // subset B: symbol value = ASCII code - 32
+    }
+
+    // Checksum: weight each data symbol by its 1-based position, add the start
+    // symbol's own value (weight 1), and reduce modulo 103.
+    var sum = __c128StartB;
+    for (var k = 0; k < values.length; k++) {
+      sum += (k + 1) * values[k];
+    }
+    var checksum = sum % 103;
+
+    var bits = __c128PatternBits(__c128Patterns[__c128StartB]);
+    for (var j = 0; j < values.length; j++) {
+      bits += __c128PatternBits(__c128Patterns[values[j]]);
+    }
+    bits += __c128PatternBits(__c128Patterns[checksum]);
+    bits += __c128PatternBits(__c128Patterns[__c128Stop]);
+
+    // Start + data + checksum are 11 modules each; Stop is 13.
+    var expected = 11 * (values.length + 2) + 13;
+    if (bits.length !== expected) {
+      throw new Error(
+        'code128Encode: internal error, produced ' + bits.length +
+        ' bits but expected ' + expected
+      );
+    }
+
+    return { code: s, bits: bits, checksum: checksum };
+  }
+
+  /* ===========================================================================
+   * SECTION 6 - CODE 39
+   * ======================================================================== */
+
+  /* ---------------------------------------------------------------------------
+   * 6.1 The pattern table
+   * ------------------------------------------------------------------------ */
+
+  // Code 39 is the one symbology here that needs no arithmetic at all: every
+  // character is an independent 9-element pattern, so the "encoder" is a table
+  // lookup and a join. Each pattern alternates bar, space, bar, space, ...
+  // starting with a bar, and exactly three of the nine elements are wide.
+  //
+  // 'n' = narrow (1 module), 'w' = wide (3 modules), so one character is
+  // 6*1 + 3*3 = 15 modules. Characters are separated by a single narrow light
+  // module (the inter-character gap).
+  //
+  // Note the five characters - . $ / + % and the * delimiter: for $ / + % all
+  // five bars are narrow and three of the four spaces are wide, which is what
+  // keeps them distinguishable from the alphanumerics.
+  var __c39Patterns = {
+    '0': 'nnnwwnwnn', '1': 'wnnwnnnnw', '2': 'nnwwnnnnw', '3': 'wnwwnnnnn',
+    '4': 'nnnwwnnnw', '5': 'wnnwwnnnn', '6': 'nnwwwnnnn', '7': 'nnnwnnwnw',
+    '8': 'wnnwnnwnn', '9': 'nnwwnnwnn',
+    'A': 'wnnnnwnnw', 'B': 'nnwnnwnnw', 'C': 'wnwnnwnnn', 'D': 'nnnnwwnnw',
+    'E': 'wnnnwwnnn', 'F': 'nnwnwwnnn', 'G': 'nnnnnwwnw', 'H': 'wnnnnwwnn',
+    'I': 'nnwnnwwnn', 'J': 'nnnnwwwnn', 'K': 'wnnnnnnww', 'L': 'nnwnnnnww',
+    'M': 'wnwnnnnwn', 'N': 'nnnnwnnww', 'O': 'wnnnwnnwn', 'P': 'nnwnwnnwn',
+    'Q': 'nnnnnnwww', 'R': 'wnnnnnwwn', 'S': 'nnwnnnwwn', 'T': 'nnnnwnwwn',
+    'U': 'wwnnnnnnw', 'V': 'nwwnnnnnw', 'W': 'wwwnnnnnn', 'X': 'nwnnwnnnw',
+    'Y': 'wwnnwnnnn', 'Z': 'nwwnwnnnn',
+    '-': 'nwnnnnwnw', '.': 'wwnnnnwnn', ' ': 'nwwnnnwnn', '$': 'nwnwnwnnn',
+    '/': 'nwnwnnnwn', '+': 'nwnnnwnwn', '%': 'nnnwnwnwn',
+    '*': 'nwnnwnwnn'  // start/stop delimiter, never part of the payload
+  };
+
+  // The 43 data characters, in the order that defines their mod-43 values.
+  // Only needed if the optional check character is ever switched on.
+  var __c39CheckAlphabet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-. $/+%';
+
+  var __c39Narrow = 1;
+  var __c39Wide = 3;   // narrow:wide ratio 1:3
+
+  /* ---------------------------------------------------------------------------
+   * 6.2 Helpers
+   * ------------------------------------------------------------------------ */
+
+  // Expand one 'n'/'w' pattern into '0'/'1' modules. Elements alternate dark,
+  // light, dark, ... starting with dark.
+  function __c39PatternBits(pattern) {
+    var out = '';
+    for (var i = 0; i < 9; i++) {
+      var width = (pattern.charAt(i) === 'w') ? __c39Wide : __c39Narrow;
+      var module = (i % 2 === 0) ? '1' : '0';
+      for (var w = 0; w < width; w++) out += module;
+    }
+    return out;
+  }
+
+  // Optional mod-43 check character. Code 39 readers do not expect one unless
+  // they are configured for it, and an unexpected check character shows up as
+  // a stray trailing character in the decoded text - so this stays OFF by
+  // default and is exposed only as the `withCheck` flag below.
+  function __c39CheckChar(payload) {
+    var sum = 0;
+    for (var i = 0; i < payload.length; i++) {
+      sum += __c39CheckAlphabet.indexOf(payload.charAt(i));
+    }
+    return __c39CheckAlphabet.charAt(sum % 43);
+  }
+
+  /* ---------------------------------------------------------------------------
+   * 6.3 Public Code 39 entry point
+   * ------------------------------------------------------------------------ */
+
+  /**
+   * Encode a Code 39 barcode.
+   *
+   * Lowercase input is upper-cased rather than rejected, because Code 39 has
+   * no lowercase alphabet and upper-casing is what every label printer does.
+   *
+   * @param {string} text        Uppercase A-Z, 0-9 and - . $ / + % SPACE.
+   * @param {boolean} withCheck  Optional, default false. When true a mod-43
+   *                             check character is appended. Leave it off
+   *                             unless the reader is configured to expect one.
+   * @returns {{code:string, bits:string}}
+   *          `code` is the upper-cased payload, WITHOUT the * delimiters -
+   *          that is what a decoder reports back.
+   *          `bits` includes the * start and stop patterns and the narrow gaps
+   *          between characters, '1' = dark bar.
+   */
+  function code39Encode(text, withCheck) {
+    if (text === undefined || text === null) {
+      throw new Error('code39Encode: text is required');
+    }
+    var s = String(text).toUpperCase();
+    if (s.length === 0) {
+      throw new Error('code39Encode: text must not be empty');
+    }
+
+    // Validate first, so a bad character is reported before any work is done.
+    // '*' is rejected as data: it is the delimiter, and letting it through
+    // would end the symbol early.
+    for (var i = 0; i < s.length; i++) {
+      var ch = s.charAt(i);
+      if (ch === '*' || !Object.prototype.hasOwnProperty.call(__c39Patterns, ch)) {
+        throw new Error(
+          'code39Encode: character "' + ch + '" is not in the Code 39 ' +
+          'character set, which is A-Z, 0-9 and - . $ / + % and space'
+        );
+      }
+    }
+
+    var payload = s;
+    if (withCheck) payload += __c39CheckChar(s);
+
+    // '*' + payload + '*', joined by one narrow light module each.
+    var chars = ('*' + payload + '*').split('');
+    var parts = [];
+    for (var j = 0; j < chars.length; j++) {
+      parts.push(__c39PatternBits(__c39Patterns[chars[j]]));
+    }
+    var bits = parts.join('0');
+
+    // Each of the chars.length characters is 15 modules, with one narrow gap
+    // between each neighbouring pair.
+    var expected = 15 * chars.length + (chars.length - 1);
+    if (bits.length !== expected) {
+      throw new Error(
+        'code39Encode: internal error, produced ' + bits.length +
+        ' bits but expected ' + expected
+      );
+    }
+
+    return { code: payload, bits: bits };
+  }
+
+  /* ===========================================================================
+   * Exports - exactly six globals.
    * ======================================================================== */
 
   global.qrEncode = qrEncode;
   global.ean13Encode = ean13Encode;
+  global.ean8Encode = ean8Encode;
+  global.upcaEncode = upcaEncode;
+  global.code128Encode = code128Encode;
+  global.code39Encode = code39Encode;
 
 }(typeof globalThis !== 'undefined' ? globalThis : this));

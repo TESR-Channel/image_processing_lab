@@ -368,7 +368,8 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
         <button class="tab" data-tab="draw"><span class="ico">✏️</span><span data-i18n="tab.draw">วาด &amp; ข้อความ</span></button>
         <button class="tab" data-tab="haar"><span class="ico">👁</span><span data-i18n="tab.haar">ตา / หน้า / ยิ้ม</span></button>
         <button class="tab" data-tab="face"><span class="ico">🪪</span><span data-i18n="tab.face">จำใบหน้า</span></button>
-        <button class="tab" data-tab="codes"><span class="ico">🔳</span><span data-i18n="tab.codes">โค้ด &amp; มาร์กเกอร์</span></button>
+        <button class="tab" data-tab="codes" data-mode="detect"><span class="ico">🔳</span><span data-i18n="tab.codes">อ่านโค้ด</span></button>
+        <button class="tab" data-tab="codes" data-mode="make"><span class="ico">🖨</span><span data-i18n="tab.codegen">สร้างโค้ด</span></button>
   </div>
   <div class="viewswitch">
     <button class="vbtn on" data-mainview="work">🎛 <span data-i18n="vw.work">ปรับแต่ง</span></button>
@@ -806,28 +807,40 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
 
       <!-- CODES & MARKERS -->
       <div class="body pane hidden" id="pane-codes">
-        <div class="field">
-          <label class="lbl" data-i18n="z.mode">ต้องการทำอะไร</label>
-          <select id="z_mode">
-            <option value="detect" selected data-i18n="z.mode1">อ่านโค้ดจากภาพ</option>
-            <option value="make" data-i18n="z.mode2">สร้างโค้ดไว้พิมพ์</option>
-          </select>
-        </div>
+        <!-- The mode now lives on the tab bar, where it cannot be missed. This
+             select is kept only as the state the rest of the code reads. -->
+        <select id="z_mode" style="display:none">
+          <option value="detect" selected>detect</option>
+          <option value="make">make</option>
+        </select>
 
         <!-- the dictionary matters when reading AND when printing, so it is
              shared by both modes rather than living inside one of them -->
         <div class="field" id="z_dictWrap">
           <label class="lbl" data-i18n="z.dict">ชุด ArUco ที่ใช้ (dictionary)</label>
           <select id="z_dict">
-            <option value="0" selected>DICT_4X4_50</option>
-            <option value="1">DICT_4X4_100</option>
-            <option value="4">DICT_5X5_50</option>
-            <option value="5">DICT_5X5_100</option>
-            <option value="8">DICT_6X6_50</option>
-            <option value="10">DICT_6X6_250</option>
-            <option value="12">DICT_7X7_50</option>
-            <option value="16">DICT_ARUCO_ORIGINAL</option>
-            <option value="20">DICT_APRILTAG_36h11</option>
+            <option value="0" selected>DICT_4X4_50  (50 ids)</option>
+            <option value="1">DICT_4X4_100  (100 ids)</option>
+            <option value="2">DICT_4X4_250  (250 ids)</option>
+            <option value="3">DICT_4X4_1000  (1000 ids)</option>
+            <option value="4">DICT_5X5_50  (50 ids)</option>
+            <option value="5">DICT_5X5_100  (100 ids)</option>
+            <option value="6">DICT_5X5_250  (250 ids)</option>
+            <option value="7">DICT_5X5_1000  (1000 ids)</option>
+            <option value="8">DICT_6X6_50  (50 ids)</option>
+            <option value="9">DICT_6X6_100  (100 ids)</option>
+            <option value="10">DICT_6X6_250  (250 ids)</option>
+            <option value="11">DICT_6X6_1000  (1000 ids)</option>
+            <option value="12">DICT_7X7_50  (50 ids)</option>
+            <option value="13">DICT_7X7_100  (100 ids)</option>
+            <option value="14">DICT_7X7_250  (250 ids)</option>
+            <option value="15">DICT_7X7_1000  (1000 ids)</option>
+            <option value="16">DICT_ARUCO_ORIGINAL  (1024 ids)</option>
+            <option value="17">DICT_APRILTAG_16h5  (30 ids)</option>
+            <option value="18">DICT_APRILTAG_25h9  (35 ids)</option>
+            <option value="19">DICT_APRILTAG_36h10  (2320 ids)</option>
+            <option value="20">DICT_APRILTAG_36h11  (587 ids)</option>
+            <option value="21">DICT_ARUCO_MIP_36h12  (250 ids)</option>
           </select>
           <div class="hint" data-i18n="z.dictHint">ต้องตรงกับชุดที่ใช้ตอนพิมพ์ ถ้าเลือกผิดชุดจะอ่านไม่เจอเลยแม้มาร์กเกอร์จะชัดมาก — เป็นสาเหตุอันดับหนึ่งที่ "มันไม่เจอ"</div>
         </div>
@@ -849,6 +862,8 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
           <label class="check"><input type="checkbox" id="z_soft" checked /><span data-i18n="z.soft">เบลอเล็กน้อยก่อนอ่านบาร์โค้ด</span></label>
           <div class="hint" data-i18n="z.softHint">ตัวอ่านบาร์โค้ดของ OpenCV ดูการไล่ระดับของขอบ ภาพที่คมเป๊ะแบบไฟล์ที่เพิ่งสร้างจึงมักอ่านไม่ออก แต่ภาพจากกล้องจริงอ่านได้ ตัวเลือกนี้เบลอ 5x5 ก่อนอ่านเพื่อให้ทดสอบบนจอได้</div>
           <label class="check"><input type="checkbox" id="z_corner" /><span data-i18n="z.corner">วาดมุมทั้งสี่ของ ArUco</span></label>
+          <label class="check"><input type="checkbox" id="z_zbar" /><span data-i18n="z.zbar">ให้โค้ด Python ใช้ pyzbar อ่านบาร์โค้ด</span></label>
+          <div class="hint" data-i18n="z.zbarHint">OpenCV อ่านบาร์โค้ดได้แค่ตระกูล EAN/UPC · เปิดข้อนี้แล้วโค้ดที่ export จะใช้ pyzbar ซึ่งอ่าน Code 128, Code 39 และ ITF ได้ด้วย (ต้องลง <code>pip install pyzbar</code> และบน Pi/Ubuntu ต้อง <code>sudo apt install libzbar0</code>) · ตัวเลือกนี้มีผลกับโค้ด Python เท่านั้น ไม่เปลี่ยนการอ่านในเบราว์เซอร์</div>
           </details>
           <label class="check"><input type="checkbox" id="z_label" checked /><span data-i18n="z.label">แสดงค่าที่อ่านได้บนภาพ</span></label>
           <div class="hint" data-i18n="z.readHint">ลองกด "สร้างโค้ดไว้พิมพ์" แล้วกดปุ่มส่งเข้าภาพหลัก จะได้ทดสอบวงจรครบ สร้าง → อ่าน → ออกเป็นโค้ด Python</div>
@@ -859,9 +874,13 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
           <div class="field">
             <label class="lbl" data-i18n="z.type">ชนิดของโค้ด</label>
             <select id="z_type">
-              <option value="aruco" selected data-i18n="z.ty1">ArUco marker</option>
-              <option value="qr" data-i18n="z.ty2">QR code</option>
-              <option value="ean13" data-i18n="z.ty3">บาร์โค้ด EAN-13</option>
+              <option value="aruco" selected data-i18n="z.ty1">ArUco marker — บอกตำแหน่งและมุม</option>
+              <option value="qr" data-i18n="z.ty2">QR code — ใส่ข้อความยาวได้</option>
+              <option value="ean13" data-i18n="z.ty3">EAN-13 — บาร์โค้ดสินค้าในห้าง</option>
+              <option value="ean8" data-i18n="z.ty4">EAN-8 — สินค้าชิ้นเล็ก</option>
+              <option value="upca" data-i18n="z.ty5">UPC-A — สินค้าฝั่งอเมริกา</option>
+              <option value="code128" data-i18n="z.ty6">Code 128 — โรงงาน/โลจิสติกส์ ใส่ตัวอักษรได้</option>
+              <option value="code39" data-i18n="z.ty7">Code 39 — อุตสาหกรรมรุ่นเก่า</option>
             </select>
           </div>
           <div id="z_gAruco">
@@ -873,6 +892,11 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
             <div class="field">
               <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="z.border">ความหนาขอบดำ (border bits)</label><b id="z_borderV">1</b></div>
               <input type="range" id="z_border" min="1" max="3" value="1" />
+            </div>
+            <div class="field">
+              <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="z.count">จำนวนที่จะสร้าง</label><b id="z_countV">1</b></div>
+              <input type="range" id="z_count" min="1" max="24" value="1" />
+              <div class="hint" data-i18n="z.countHint">มากกว่า 1 จะเรียงเป็นแผ่นเดียว มีเลข id กำกับใต้ทุกตัว ไว้พิมพ์ครั้งเดียวแล้วตัดแจกทั้งห้อง · ไล่ id ต่อจากเลขด้านบน</div>
             </div>
           </div>
           <div id="z_gQr" class="hidden">
@@ -894,9 +918,20 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
           </div>
           <div id="z_gEan" class="hidden">
             <div class="field">
-              <label class="lbl" data-i18n="z.digits">ตัวเลข 12 หลัก</label>
+              <label class="lbl" id="z_digitsLbl" data-i18n="z.digits">ตัวเลข 12 หลัก</label>
               <input type="text" id="z_digits" value="885012341234" inputmode="numeric" />
-              <div class="hint" data-i18n="z.digitsHint">ระบบคำนวณหลักตรวจสอบ (check digit) ตัวที่ 13 ให้เอง · EAN-13 เก็บได้แต่ตัวเลขเท่านั้น ถ้าต้องเก็บตัวอักษรให้ใช้ QR</div>
+              <div class="hint" data-i18n="z.digitsHint">ระบบคำนวณหลักตรวจสอบ (check digit) หลักสุดท้ายให้เอง · ตระกูล EAN/UPC เก็บได้แต่ตัวเลขเท่านั้น ถ้าต้องเก็บตัวอักษรให้ใช้ Code 128 หรือ QR</div>
+            </div>
+          </div>
+          <div id="z_gText" class="hidden">
+            <div class="field">
+              <label class="lbl" data-i18n="z.bartext">ข้อความบนบาร์โค้ด</label>
+              <input type="text" id="z_bartext" value="PART-A2140" />
+              <div class="hint" id="z_bartextHint" data-i18n="z.bartextHint">Code 128 ใส่ได้ทุกตัวอักษร ASCII (A–Z a–z 0–9 และเครื่องหมาย) · Code 39 ใส่ได้เฉพาะ A–Z 0–9 และ - . $ / + % เว้นวรรค · ทั้งคู่ใส่ภาษาไทยไม่ได้ ถ้าต้องใช้ไทยให้ใช้ QR</div>
+            </div>
+            <div class="note" style="margin:0 0 12px" data-i18n="z.zbarNote">
+              OpenCV อ่านบาร์โค้ดได้เฉพาะตระกูล EAN/UPC เท่านั้น ชนิดนี้ต้องใช้ไลบรารี pyzbar อ่าน
+              หน้าเว็บจึงสร้างให้พิมพ์ได้แต่ยังอ่านกลับในเบราว์เซอร์ไม่ได้ ส่วนโค้ด Python ที่กดรับไปจะใส่ pyzbar ให้อัตโนมัติ อ่านได้จริงบน Pi
             </div>
           </div>
           <div class="field">
@@ -1110,7 +1145,21 @@ const I18N = {
     'stat.size':'Processed size','stat.found':'Detected','stat.time':'Browser time',
     'stat.note':'The time shown is OpenCV.js (WebAssembly) running on this machine — it is not a Raspberry Pi or Jetson benchmark. Always measure again on the real hardware.',
     'tab.draw':'Draw & text','tab.haar':'Haar Cascade','tab.line':'Lines (Hough)','tab.face':'Face Recognition',
-    'tab.codes':'Codes & markers',
+    'tab.codes':'Read codes','tab.codegen':'Make codes',
+    'z.ty1':'ArUco marker - gives position and angle',
+    'z.ty2':'QR code - holds long text',
+    'z.ty3':'EAN-13 - the supermarket product barcode',
+    'z.ty4':'EAN-8 - for small packages',
+    'z.ty5':'UPC-A - the North American equivalent',
+    'z.ty6':'Code 128 - factory and logistics, takes letters',
+    'z.ty7':'Code 39 - older industrial',
+    'z.bartext':'Text on the barcode',
+    'z.bartextHint':'Code 128 takes any printable ASCII (A-Z a-z 0-9 and punctuation). Code 39 takes only A-Z 0-9 and - . $ / + % and space. Neither can hold Thai - use a QR code for that.',
+    'z.zbarNote':'OpenCV only reads the EAN/UPC family of barcodes. This type needs the pyzbar library, so the page can draw it for printing but cannot read it back in the browser. The Python you export wires pyzbar in for you, and reads it properly on the Pi.',
+    'z.zbar':'Let the exported Python read barcodes with pyzbar',
+    'z.zbarHint':'OpenCV reads only the EAN/UPC family. Turn this on and the exported code uses pyzbar instead, which also reads Code 128, Code 39 and ITF (needs <code>pip install pyzbar</code>, plus <code>sudo apt install libzbar0</code> on a Pi or Ubuntu). This affects the Python only - it does not change what the browser reads.',
+    'z.count':'How many to make',
+    'z.countHint':'More than one lays them out on a single sheet with the id printed under each, so you can print once and cut them up for the whole room. Ids continue from the number above.',
     'z.mode':'What do you want to do','z.mode1':'Read codes from an image','z.mode2':'Make a code to print',
     'z.what':'What to look for',
     'z.tAruco':'ArUco marker — gives position and angle',
@@ -1452,7 +1501,10 @@ $('camShot').onclick=()=>{ stopLive(true); toast(LANG==='en'?'Captured as a stil
 let TAB='circle';
 document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   TAB=t.dataset.tab;
+  // two buttons share the codes pane - one opens it reading, one generating
+  if(t.dataset.mode) $('z_mode').value=t.dataset.mode;
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+  syncLabels();
   ['circle','color','pre','line','draw','haar','face','codes'].forEach(p=>$('pane-'+p).classList.toggle('hidden',p!==TAB));
   $('canvasResult').classList.toggle('drawmode', TAB==='draw');
   if(VIEW==='export') $('exportTabName').textContent=TAB_LABELS[TAB][LANG==='en'?1:0];
@@ -1555,16 +1607,26 @@ function syncLabels(){
   $('z_mmV').textContent=(+$('z_mm').value)===0?'—':$('z_mm').value;
   $('z_idV').textContent=$('z_id').value;
   $('z_borderV').textContent=$('z_border').value;
+  $('z_countV').textContent=$('z_count').value;
   $('z_pxV').textContent=$('z_px').value;
   const zMake=$('z_mode').value==='make';
   $('z_detectWrap').classList.toggle('hidden',zMake);
   $('z_makeWrap').classList.toggle('hidden',!zMake);
+  // keep the tab bar honest if the mode changed from anywhere but a tab click
+  if(TAB==='codes') document.querySelectorAll('.tab[data-mode]').forEach(b=>
+    b.classList.toggle('on', b.dataset.mode===(zMake?'make':'detect')));
   const zType=$('z_type').value;
+  const EAN_KIND={ean13:12,ean8:7,upca:11};
   // the dictionary only means anything when ArUco is actually in play
   $('z_dictWrap').classList.toggle('hidden', zMake ? zType!=='aruco' : !$('z_aruco').checked);
   $('z_gAruco').classList.toggle('hidden',zType!=='aruco');
   $('z_gQr').classList.toggle('hidden',zType!=='qr');
-  $('z_gEan').classList.toggle('hidden',zType!=='ean13');
+  $('z_gEan').classList.toggle('hidden',!(zType in EAN_KIND));
+  $('z_gText').classList.toggle('hidden',!(zType==='code128'||zType==='code39'));
+  if(zType in EAN_KIND){
+    const n=EAN_KIND[zType];
+    $('z_digitsLbl').textContent = LANG==='en' ? ('Digits ('+n+')') : ('ตัวเลข '+n+' หลัก');
+  }
   $('z_id').max=String(Math.max(0,(DICT_COUNT[$('z_dict').value]||50)-1));
   if(+$('z_id').value>+$('z_id').max){ $('z_id').value=$('z_id').max; $('z_idV').textContent=$('z_id').value; }
   const rangeMode=$('k_mode').value==='range';
@@ -1582,10 +1644,8 @@ function syncLabels(){
    exposes positionally. DICT_COUNT is how many ids each set holds - the id
    slider is clamped to it, because asking for id 60 out of DICT_4X4_50 throws
    inside OpenCV rather than returning an error we could show. */
-const DICT_NAME={0:'DICT_4X4_50',1:'DICT_4X4_100',4:'DICT_5X5_50',5:'DICT_5X5_100',
-  8:'DICT_6X6_50',10:'DICT_6X6_250',12:'DICT_7X7_50',16:'DICT_ARUCO_ORIGINAL',
-  20:'DICT_APRILTAG_36h11'};
-const DICT_COUNT={0:50,1:100,4:50,5:100,8:50,10:250,12:50,16:1024,20:587};
+const DICT_NAME={0:'DICT_4X4_50',1:'DICT_4X4_100',2:'DICT_4X4_250',3:'DICT_4X4_1000',4:'DICT_5X5_50',5:'DICT_5X5_100',6:'DICT_5X5_250',7:'DICT_5X5_1000',8:'DICT_6X6_50',9:'DICT_6X6_100',10:'DICT_6X6_250',11:'DICT_6X6_1000',12:'DICT_7X7_50',13:'DICT_7X7_100',14:'DICT_7X7_250',15:'DICT_7X7_1000',16:'DICT_ARUCO_ORIGINAL',17:'DICT_APRILTAG_16h5',18:'DICT_APRILTAG_25h9',19:'DICT_APRILTAG_36h10',20:'DICT_APRILTAG_36h11',21:'DICT_ARUCO_MIP_36h12'};
+const DICT_COUNT={0:50,1:100,2:250,3:1000,4:50,5:100,6:250,7:1000,8:50,9:100,10:250,11:1000,12:50,13:100,14:250,15:1000,16:1024,17:30,18:35,19:2320,20:587,21:250};
 
 /* ---------------- parameter collection ---------------- */
 function odd(v){v=parseInt(v);return v%2?v:v+1;}
@@ -1625,9 +1685,9 @@ function params(){
       eq:$('h_eq').checked,label:$('h_label').checked},
     codes:{mode:$('z_mode').value,aruco:$('z_aruco').checked,qr:$('z_qr').checked,
       bar:$('z_bar').checked,dict:+$('z_dict').value,mm:+$('z_mm').value,
-      soft:$('z_soft').checked,corner:$('z_corner').checked,label:$('z_label').checked,
-      type:$('z_type').value,id:+$('z_id').value,border:+$('z_border').value,
-      text:$('z_text').value,ec:$('z_ec').value,digits:$('z_digits').value.trim(),px:+$('z_px').value},
+      soft:$('z_soft').checked,corner:$('z_corner').checked,zbar:$('z_zbar').checked,label:$('z_label').checked,
+      type:$('z_type').value,id:+$('z_id').value,border:+$('z_border').value,count:+$('z_count').value,
+      text:$('z_text').value,ec:$('z_ec').value,digits:$('z_digits').value.trim(),bartext:$('z_bartext').value,px:+$('z_px').value},
     gen:{device:$('g_device').value,input:$('g_input').value,fps:$('g_fps').checked,
       save:$('g_save').checked,mqtt:$('g_mqtt').checked,picam:$('g_picamType').value}
   };
@@ -3126,17 +3186,56 @@ function quietBorder(m, pad){
   return o;
 }
 
-function makeAruco(Z){
-  const dict=cv.getPredefinedDictionary(Z.dict);
-  const side=Math.max(40,Z.px);
+function arucoTile(dict,id,side,border,caption){
   const m=new cv.Mat();
-  cv.generateImageMarker(dict,Z.id,side,m,Z.border);
+  cv.generateImageMarker(dict,id,side,m,border);
   // the white quiet zone is part of the marker: without it the detector cannot
   // find the outer black square at all
   const o=quietBorder(m,Math.round(side*0.18));
   m.delete();
-  LAST_CODE_NAME='aruco_'+(DICT_NAME[Z.dict]||'dict')+'_id'+Z.id+'.png';
-  return [o, (DICT_NAME[Z.dict]||'ArUco')+'  id '+Z.id, 'ArUco', String(Z.id)];
+  if(caption){
+    const strip=new cv.Mat(Math.round(side*0.20),o.cols,cv.CV_8UC1,new cv.Scalar(255));
+    cv.putText(strip,'id '+id,new cv.Point(Math.round(side*0.18),Math.round(side*0.15)),
+      cv.FONT_HERSHEY_SIMPLEX,side/420,new cv.Scalar(60),Math.max(1,Math.round(side/160)),cv.LINE_AA);
+    const stacked=new cv.Mat();
+    const v=new cv.MatVector(); v.push_back(o); v.push_back(strip);
+    cv.vconcat(v,stacked);
+    o.delete(); strip.delete(); v.delete();
+    return stacked;
+  }
+  return o;
+}
+
+function makeAruco(Z){
+  const dict=cv.getPredefinedDictionary(Z.dict);
+  const total=DICT_COUNT[Z.dict]||50;
+  // a sheet cannot run past the end of the dictionary, so trim rather than
+  // let OpenCV throw on an id that does not exist
+  const count=Math.max(1,Math.min(Z.count,total-Z.id));
+  const trimmed=count<Z.count;
+
+  if(count===1){
+    const o=arucoTile(dict,Z.id,Math.max(40,Z.px),Z.border,false);
+    LAST_CODE_NAME='aruco_'+(DICT_NAME[Z.dict]||'dict')+'_id'+Z.id+'.png';
+    return [o,(DICT_NAME[Z.dict]||'ArUco')+'  id '+Z.id,'ArUco',String(Z.id)];
+  }
+
+  const cols=Math.min(4,Math.ceil(Math.sqrt(count))), rowsN=Math.ceil(count/cols);
+  const side=Math.max(60,Math.round(Z.px/cols));
+  const tiles=[];
+  for(let i=0;i<count;i++) tiles.push(arucoTile(dict,Z.id+i,side,Z.border,true));
+  const tw=tiles[0].cols, tht=tiles[0].rows;
+  const sheet=new cv.Mat(rowsN*tht,cols*tw,cv.CV_8UC1,new cv.Scalar(255));
+  tiles.forEach((t,i)=>{
+    const r=Math.floor(i/cols), c=i%cols;
+    const roi=sheet.roi(new cv.Rect(c*tw,r*tht,tw,tht));
+    t.copyTo(roi); roi.delete(); t.delete();
+  });
+  LAST_CODE_NAME='aruco_sheet_'+(DICT_NAME[Z.dict]||'dict')+'_id'+Z.id+'-'+(Z.id+count-1)+'.png';
+  const cap=(DICT_NAME[Z.dict]||'ArUco')+'  id '+Z.id+'-'+(Z.id+count-1)
+            +(trimmed?('  ('+(LANG==='en'?'trimmed, the set ends at id '+(total-1)
+                                         :'ตัดให้แล้ว ชุดนี้มีถึง id '+(total-1))+')'):'');
+  return [sheet,cap,'ArUco sheet',Z.id+'-'+(Z.id+count-1)];
 }
 
 function makeQr(Z){
@@ -3155,23 +3254,57 @@ function makeQr(Z){
   return [o,'QR  version '+q.version+'  level '+Z.ec+'  ('+q.size+'x'+q.size+' modules)','QR',Z.text];
 }
 
-function makeEan(Z){
-  const e=ean13Encode(Z.digits);                 // throws on bad input
-  // OpenCV reads thin bars far more reliably than thick ones, so the module
-  // width is deliberately held to 2-4 px no matter how large the export is.
-  const module=Math.min(4,Math.max(2,Math.round(Z.px/115)));
-  const quiet=10, W=(95+2*quiet)*module, barh=Math.max(90,Math.round(W*0.42));
-  const m=new cv.Mat(barh,W,cv.CV_8UC1,new cv.Scalar(255));
-  for(let i=0;i<e.bits.length;i++){
+/* Every 1-D symbology here produces the same {code, bits} shape, so one
+   renderer draws them all. What differs is only who can read them back:
+   OpenCV decodes the EAN/UPC family and nothing else, which is why Code 128
+   and Code 39 carry a warning in the panel and switch the exported Python
+   over to pyzbar. */
+const BARCODE_KIND={
+  ean13:  {label:'EAN-13',   type:'EAN_13',  numeric:true,  cvReadable:true},
+  ean8:   {label:'EAN-8',    type:'EAN_8',   numeric:true,  cvReadable:true},
+  upca:   {label:'UPC-A',    type:'UPC_A',   numeric:true,  cvReadable:true},
+  code128:{label:'Code 128', type:'CODE128', numeric:false, cvReadable:false},
+  code39: {label:'Code 39',  type:'CODE39',  numeric:false, cvReadable:false}
+};
+
+function barcodeEncode(kind,value){
+  switch(kind){
+    case 'ean13':   return ean13Encode(value);
+    case 'ean8':    return ean8Encode(value);
+    case 'upca':    return upcaEncode(value);
+    case 'code128': return code128Encode(value);
+    case 'code39':  return code39Encode(value);
+  }
+  throw new Error('unknown barcode kind: '+kind);
+}
+
+function makeBarcode(Z){
+  const k=BARCODE_KIND[Z.type];
+  const e=barcodeEncode(Z.type, k.numeric?Z.digits:Z.bartext);   // throws on bad input
+  const n=e.bits.length, quiet=10;
+  // Thin bars read far more reliably than thick ones, so the module width is
+  // deliberately held to 2-4 px no matter how large the export is. Scale it up
+  // in the print dialog instead.
+  const module=Math.min(4,Math.max(2,Math.round(Z.px/(n+2*quiet))));
+  const W=(n+2*quiet)*module;
+  const barh=Math.max(90,Math.round(W*0.34));
+  const textH=Math.round(module*9);
+  const m=new cv.Mat(barh+textH,W,cv.CV_8UC1,new cv.Scalar(255));
+  for(let i=0;i<n;i++){
     if(e.bits.charAt(i)!=='1') continue;
     const x0=(quiet+i)*module;
     for(let x=x0;x<x0+module;x++)
       for(let y=0;y<barh;y++) m.ucharPtr(y,x)[0]=0;
   }
+  // the human-readable line a real label carries, so a person can check it too
+  cv.putText(m,e.code,new cv.Point(quiet*module,barh+textH-Math.round(module*2)),
+    cv.FONT_HERSHEY_SIMPLEX,module*0.16,new cv.Scalar(0),Math.max(1,Math.round(module/2.5)),cv.LINE_AA);
   const o=quietBorder(m,Math.round(module*8));
   m.delete();
-  LAST_CODE_NAME='ean13_'+e.code+'.png';
-  return [o,'EAN-13  '+e.code+'   (module '+module+' px)','EAN_13',e.code];
+  LAST_CODE_NAME=Z.type+'_'+e.code.replace(/[^A-Za-z0-9._-]/g,'')+'.png';
+  const warn=k.cvReadable?'':'   ('+(LANG==='en'?'OpenCV cannot read this one - the exported Python uses pyzbar'
+                                               :'OpenCV อ่านชนิดนี้ไม่ได้ โค้ด Python ที่ export ใช้ pyzbar')+')';
+  return [o,k.label+'  '+e.code+'   (module '+module+' px)'+warn,k.type,e.code];
 }
 
 function stashCode(rgba){
@@ -3189,7 +3322,7 @@ function runCodes(src,Z){
   if(Z.mode==='make'){
     let built=null;
     try{
-      built = Z.type==='aruco' ? makeAruco(Z) : (Z.type==='qr' ? makeQr(Z) : makeEan(Z));
+      built = Z.type==='aruco' ? makeAruco(Z) : (Z.type==='qr' ? makeQr(Z) : makeBarcode(Z));
       $('z_err').classList.add('hidden');
     }catch(e){
       $('z_err').textContent=(e&&e.message)?e.message:String(e);
@@ -3606,6 +3739,7 @@ function header(title,G,extra,opts){
   o.push('Python   : 3.9 - 3.11');
   let pkgs=(opts.contrib?'opencv-contrib-python':'opencv-python')+' numpy';
   if(G.mqtt) pkgs+=' paho-mqtt';
+  if(opts.pkgs&&opts.pkgs.length) pkgs+=' '+opts.pkgs.join(' ');
   let note='';
   if(G.device==='pi'&&G.input==='camera')
     note='   # '+(G.picam==='csi'
@@ -3634,6 +3768,7 @@ function header(title,G,extra,opts){
   o.push('import cv2');
   o.push('import numpy as np');
   if(G.mqtt) o.push('import paho.mqtt.client as mqtt');
+  if(opts.imports) opts.imports.forEach(line=>o.push(line));
   if(G.device==='pi'&&G.input==='camera'&&G.picam==='csi') o.push('from picamera2 import Picamera2');
   if(G.device==='kinect'&&G.input==='camera') o.push('import freenect');
   o.push('');
@@ -5185,7 +5320,10 @@ function codeCodes(P){
   if(Z.mode==='make') return codeCodesMake(P);
 
   const want=[]; if(Z.aruco) want.push('ArUco'); if(Z.qr) want.push('QR'); if(Z.bar) want.push('Barcode');
-  const o=header('Codes & Markers - read '+(want.join(' + ')||'nothing selected'),G,codeCodesNotes(Z),{os:true,json:true});
+  const o=header('Codes & Markers - read '+(want.join(' + ')||'nothing selected'),G,codeCodesNotes(Z),
+    {os:true,json:true,
+     pkgs:(Z.bar&&Z.zbar)?['pyzbar']:[],
+     imports:(Z.bar&&Z.zbar)?['from pyzbar import pyzbar']:[]});
   o.push('# ---------- '+L('ค่าที่จูนไว้','Tuned parameters')+' ----------');
   o.push('WINDOW_NAME = "TESR Codes and Markers"');
   o.push('SCALE_PERCENT = '+P.scale);
@@ -5505,14 +5643,20 @@ $('z_use').onclick=()=>{
   const url=LAST_CODE_URL, name=LAST_CODE_NAME;
   // switch back to reading mode so the round trip is visible immediately
   $('z_mode').value='detect';
-  const t=$('z_type').value;
+  const t=$('z_type').value, k=BARCODE_KIND[t];
   $('z_aruco').checked = t==='aruco';
   $('z_qr').checked    = t==='qr';
-  $('z_bar').checked   = t==='ean13';
+  $('z_bar').checked   = !!k;
   syncLabels();
   loadUrl(url,name);
-  toast(LANG==='en'?'Sent to the main image — now reading it back'
-                   :'ส่งเข้าภาพหลักแล้ว กำลังอ่านกลับ');
+  if(k && !k.cvReadable){
+    // say so rather than let it look broken when nothing is found
+    toast(LANG==='en'?k.label+' sent — OpenCV cannot read this type, so expect 0 found here. The exported Python reads it with pyzbar.'
+                     :'ส่ง '+k.label+' เข้าภาพแล้ว — OpenCV อ่านชนิดนี้ไม่ได้ ตรงนี้จะขึ้น 0 เป็นปกติ ส่วนโค้ด Python ที่ export อ่านได้ด้วย pyzbar');
+  }else{
+    toast(LANG==='en'?'Sent to the main image — now reading it back'
+                     :'ส่งเข้าภาพหลักแล้ว กำลังอ่านกลับ');
+  }
 };
 $('gotoCode').onclick=()=>setView('export');
 document.querySelectorAll('#jumpbar button').forEach(b=>b.onclick=()=>{
