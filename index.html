@@ -1265,23 +1265,56 @@ function rgb2hsv(r,g,b){ // returns OpenCV ranges H 0-179, S 0-255, V 0-255
 }
 
 /* ---------------- OpenCV.js loading ---------------- */
+/* Sources are tried in order and assets/opencv.js comes first, so a machine
+   with no usable internet - a Pi on a factory or classroom network - still
+   opens the Lab. If that file is not there the request 404s at once and the
+   CDNs are tried, so the page works either way.
+
+   Each network source also gets a watchdog. A stalled request fires neither
+   onload nor onerror, which is exactly what a filtered or saturated network
+   produces, and without a watchdog the page sits on "loading OpenCV.js"
+   indefinitely instead of falling through to the next source or saying so.
+   The local file is deliberately left un-watched: it cannot stall on the
+   network, and a slow device parsing 10 MB must not be cut off. */
 let CV_READY=false;
 const CDNS=[
+  'assets/opencv.js',
   'https://docs.opencv.org/4.10.0/opencv.js',
   'https://docs.opencv.org/4.x/opencv.js'
 ];
+const CV_LOAD_TIMEOUT=15000;
+const cvIsRemote = u => /^https?:/i.test(u);
+function cvTrying(i){
+  const nth=i+' / '+(CDNS.length-1);
+  $('cvMsg').textContent = LANG==='en'
+    ? (cvIsRemote(CDNS[i]) ? 'Loading OpenCV.js from the CDN ('+nth+') …'
+                           : 'Loading OpenCV.js from this site …')
+    : (cvIsRemote(CDNS[i]) ? 'กำลังโหลด OpenCV.js จาก CDN ('+nth+') …'
+                           : 'กำลังโหลด OpenCV.js จากเครื่องนี้ …');
+}
 function loadCv(i){
   if(i>=CDNS.length){ cvFail(); return; }
+  cvTrying(i);
   const s=document.createElement('script');
+  let settled=false, timer=null;
+  const next=()=>{
+    if(settled) return;
+    settled=true; clearTimeout(timer); s.onload=s.onerror=null;
+    loadCv(i+1);
+  };
+  // only a remote source can hang; a missing local file errors immediately
+  if(cvIsRemote(CDNS[i])) timer=setTimeout(next, CV_LOAD_TIMEOUT);
   s.async=true; s.src=CDNS[i];
   s.onload=()=>{
+    if(settled) return;
+    settled=true; clearTimeout(timer);
     const done=()=>{CV_READY=true;cvOk();render();};
     if(typeof cv==='undefined'){ loadCv(i+1); return; }
     if(cv instanceof Promise){ cv.then(c=>{window.cv=c;done();}); }
     else if(cv.getBuildInformation){ done(); }
     else { cv['onRuntimeInitialized']=done; }
   };
-  s.onerror=()=>loadCv(i+1);
+  s.onerror=next;
   document.body.appendChild(s);
 }
 function cvOk(){
@@ -1293,8 +1326,8 @@ function cvOk(){
 function cvFail(){
   $('cvDot').classList.add('err');
   $('cvMsg').textContent = LANG==='en'
-    ? 'Could not load OpenCV.js. Check your connection, or place opencv.js in assets/ and point the script tag at it (see README).'
-    : 'โหลด OpenCV.js ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ต หรือวางไฟล์ opencv.js ไว้ในโฟลเดอร์ assets/ แล้วแก้ path ตามที่ระบุใน README';
+    ? 'Could not load OpenCV.js from this site or from either CDN. Check your connection, or put a copy of opencv.js in assets/ — it is tried first (see README).'
+    : 'โหลด OpenCV.js ไม่สำเร็จ ทั้งจากเครื่องนี้และจาก CDN — ตรวจสอบอินเทอร์เน็ต หรือวางไฟล์ opencv.js ไว้ในโฟลเดอร์ assets/ ซึ่งระบบจะลองใช้เป็นอันดับแรก (ดู README)';
 }
 loadCv(0);
 
