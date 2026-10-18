@@ -156,17 +156,122 @@ for (const bad of ['59012341234A', '12345', '12345678901234', '']) {
 }
 
 // ---------------------------------------------------------------------------
+// EAN-8, UPC-A, Code 128 and Code 39 cases
+// ---------------------------------------------------------------------------
+// These four go into one `linear` array because they render and decode the
+// same way - only the symbology name differs. `expect` is what a decoder must
+// hand back: for Code 39 that is the payload without the * delimiters, and for
+// Code 39 with lowercase input it is the upper-cased form.
+const linearCases = [];
+
+function addLinear(kind, input, result, expect) {
+  linearCases.push({
+    kind,
+    id: `${kind}/${input}`,
+    input: String(input),
+    code: result.code,
+    expect: expect === undefined ? result.code : expect,
+    bits: result.bits,
+    checksum: result.checksum === undefined ? null : result.checksum
+  });
+}
+
+// ---- EAN-8 ----------------------------------------------------------------
+// The two required 7-digit inputs, plus the 8-digit round-trip of the first.
+for (const input of ['9638507', '0000000']) {
+  addLinear('EAN8', input, ean8Encode(input));
+}
+const good8 = linearCases[0].code;
+const r8 = ean8Encode(good8);
+addLinear('EAN8', good8 + ' (8-digit)', r8);
+if (r8.bits !== linearCases[0].bits) {
+  console.error('8-digit EAN-8 input produced different bits from the 7-digit form.');
+  process.exit(1);
+}
+
+// ---- UPC-A ----------------------------------------------------------------
+addLinear('UPCA', '01234567890', upcaEncode('01234567890'));
+const good12 = linearCases[linearCases.length - 1].code;
+const r12 = upcaEncode(good12);
+addLinear('UPCA', good12 + ' (12-digit)', r12);
+if (r12.bits !== linearCases[linearCases.length - 2].bits) {
+  console.error('12-digit UPC-A input produced different bits from the 11-digit form.');
+  process.exit(1);
+}
+// UPC-A must hand back 12 digits, not the 13 of the EAN-13 it is built on.
+if (good12.length !== 12) {
+  console.error(`UPC-A returned a ${good12.length}-digit code, expected 12.`);
+  process.exit(1);
+}
+
+// ---- Code 128 (subset B) --------------------------------------------------
+const c128Texts = [
+  'TESR-2140',
+  'PART A-2140 LOT 26-10',
+  '0123456789',
+  'TESR #7 50% *OK*',                          // the # % * characters
+  'TESR-2140/LOT-26-10 QC#7 PASS 100% OK ok'   // 40 characters, mixed
+];
+if (c128Texts[4].length !== 40) {
+  throw new Error('code128 mixed case is ' + c128Texts[4].length + ' chars, expected 40');
+}
+for (const text of c128Texts) {
+  addLinear('CODE128', text, code128Encode(text));
+}
+
+// ---- Code 39 --------------------------------------------------------------
+for (const text of ['TESR2140', 'PART-A2140', 'A B.C$D/E+F%G']) {
+  addLinear('CODE39', text, code39Encode(text));
+}
+// Lowercase input must encode as uppercase, and must produce exactly the same
+// bars as the already-uppercase form.
+const lower = code39Encode('tesr2140');
+addLinear('CODE39', 'tesr2140 (lowercase)', lower, 'TESR2140');
+if (lower.bits !== linearCases.find((c) => c.input === 'TESR2140').bits) {
+  console.error('Lowercase Code 39 input produced different bits from the uppercase form.');
+  process.exit(1);
+}
+
+// ---- throw checks for the four new encoders -------------------------------
+// Each entry is [label, function]; the function must throw.
+const linearNegatives = [];
+const mustThrow = [
+  ['ean8 wrong check digit 96385070', () => ean8Encode('96385070')],
+  ['ean8 wrong length 963850', () => ean8Encode('963850')],
+  ['ean8 non-digit 963850A', () => ean8Encode('963850A')],
+  ['upca wrong check digit 012345678901', () => upcaEncode('012345678901')],
+  ['upca wrong length 0123456789', () => upcaEncode('0123456789')],
+  ['code128 thai character', () => code128Encode('TESR-ทดสอบ')],
+  ['code128 tab (ascii 9)', () => code128Encode('TESR\t2140')],
+  ['code39 at-sign', () => code39Encode('TESR@2140')],
+  ['code39 asterisk in data', () => code39Encode('TESR*2140')]
+];
+for (const [label, fn] of mustThrow) {
+  let threw = false;
+  let msg = '';
+  try { fn(); } catch (e) { threw = true; msg = e.message; }
+  linearNegatives.push({ label, threw, message: msg });
+}
+
+console.log('Code 128 checksums:');
+for (const c of linearCases.filter((c) => c.kind === 'CODE128')) {
+  console.log(`  ${JSON.stringify(c.input).padEnd(44)} checksum ${c.checksum}`);
+}
+
+// ---------------------------------------------------------------------------
 fs.writeFileSync(
   OUT,
   JSON.stringify(
     {
       qr: qrCases,
       ean: eanCases,
+      linear: linearCases,
       throwChecks: {
         qrTooLong: { threw: tooLongThrew, message: tooLongMessage },
         qrBadLevel: { threw: badLevelThrew },
         eanBadCheckDigit: { input: bad13, threw: badCheckThrew, message: badCheckMessage },
-        eanNegatives: negatives
+        eanNegatives: negatives,
+        linearNegatives: linearNegatives
       }
     },
     null,
@@ -212,7 +317,10 @@ if (sweep.length !== 80) {
 fs.writeFileSync(SWEEP_OUT, JSON.stringify({ qr: sweep }));
 console.log(`Wrote sweep of ${sweep.length} version/level combinations to ${SWEEP_OUT}`);
 
-console.log(`Wrote ${qrCases.length} QR cases and ${eanCases.length} EAN cases to ${OUT}`);
+console.log(
+  `Wrote ${qrCases.length} QR cases, ${eanCases.length} EAN-13 cases and ` +
+  `${linearCases.length} EAN-8/UPC-A/Code 128/Code 39 cases to ${OUT}`
+);
 console.log('QR version/mask summary:');
 for (const c of qrCases) {
   console.log(`  ${c.id.padEnd(18)} v${String(c.version).padStart(2)}  mask ${c.mask}  size ${c.size}`);
@@ -221,5 +329,6 @@ console.log('Throw checks:', JSON.stringify({
   qrTooLong: tooLongThrew,
   qrBadLevel: badLevelThrew,
   eanBadCheckDigit: badCheckThrew,
-  eanNegatives: negatives.map((n) => n.threw)
+  eanNegatives: negatives.map((n) => n.threw),
+  linearNegatives: linearNegatives.map((n) => n.threw)
 }));
