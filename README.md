@@ -74,16 +74,21 @@ Drag-and-drop of your own images works in every case, even from `file://`.
 
 #### Fully offline (training rooms without internet)
 
-By default the page loads `opencv.js` and Google Fonts from CDNs. For offline use:
+`assets/opencv.js` is already the **first** source the page tries, ahead of the
+two CDNs, so making the Lab work without internet is one download and no code
+change:
 
-1. Download `opencv.js` from https://docs.opencv.org/4.10.0/opencv.js into `assets/opencv.js`.
-2. In `index.html`, change:
-
-```js
-const CDNS = ['assets/opencv.js'];
-```
-
+1. Download `opencv.js` from https://docs.opencv.org/4.10.0/opencv.js into `assets/opencv.js` (about 10 MB).
+2. That is all. If the file is absent the request 404s immediately and the CDNs are used instead, so the page works either way.
 3. Optionally vendor the Kanit/Sarabun fonts and adjust the Google Fonts `<link>`.
+
+Why the local copy matters on a Raspberry Pi: a filtered or saturated network
+does not refuse the CDN request, it simply stops answering it. The loader gives
+each **remote** source 15 seconds and then moves on, so a stall now falls
+through to the next source and ends with a readable error rather than leaving
+the page on "loading OpenCV.js" for ever. The local file is not put on that
+clock — it cannot stall on the network, and a slow device parsing 10 MB must
+not be cut off part-way.
 
 ### Repository layout
 
@@ -227,7 +232,7 @@ python -m http.server 8000
 
 Deploy ขึ้น GitHub Pages: **Settings → Pages → Source: GitHub Actions** แล้ว workflow ใน `.github/workflows/deploy.yml` จะจัดการให้ทุกครั้งที่ push เข้า `main`
 
-ใช้แบบออฟไลน์: ดาวน์โหลด `opencv.js` มาไว้ที่ `assets/opencv.js` แล้วแก้ `const CDNS = ['assets/opencv.js'];` ใน `index.html`
+ใช้แบบออฟไลน์: ดาวน์โหลด `opencv.js` จาก https://docs.opencv.org/4.10.0/opencv.js มาไว้ที่ `assets/opencv.js` (ประมาณ 10 MB) เท่านั้น ไม่ต้องแก้โค้ด เพราะหน้าเว็บลองโหลดจาก `assets/opencv.js` เป็นอันดับแรกอยู่แล้ว ถ้าไม่มีไฟล์ก็จะตกไปใช้ CDN ให้เอง และถ้า CDN ค้างไม่ตอบ ระบบจะรอ 15 วินาทีแล้วเปลี่ยนไปแหล่งถัดไป ไม่ค้างอยู่ที่ “กำลังโหลด OpenCV.js” ตลอดไปเหมือนเดิม
 
 ### โครงสร้างที่ถูกต้อง
 
