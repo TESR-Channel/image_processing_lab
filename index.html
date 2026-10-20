@@ -1445,7 +1445,12 @@ loadCv(0);
 /* ---------------- image source ---------------- */
 const imgEl = new Image();
 let imgLoaded=false, currentName='ex2.jpg';
-const SAMPLES=['ex2.jpg',
+const SAMPLES=[
+  // TESR curated set - shapes/coins: circles, colours: colour tab,
+  // lines: Hough, codes: markers, pcb/parts/defects: Find defects
+  'shapes.jpg','coins.jpg','colours.jpg','lines.jpg','codes.jpg',
+  'pcb.jpg','parts.jpg','defects.jpg',
+  'ex2.jpg',
   // generated scenes for the Codes & markers tab - deliberately tilted, lit
   // unevenly and JPEG'd, because that is what a camera gives you
   'codes_mixed.jpg','codes_aruco.jpg','codes_barcode.jpg',
