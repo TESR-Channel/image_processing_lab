@@ -365,6 +365,7 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
         <button class="tab" data-tab="color"><span class="ico">🎨</span><span data-i18n="tab.color">จับสี &amp; นับชิ้น</span></button>
         <button class="tab" data-tab="line"><span class="ico">📏</span><span data-i18n="tab.line">หาเส้นตรง</span></button>
         <button class="tab" data-tab="pre"><span class="ico">🛠</span><span data-i18n="tab.pre">ปรับแต่งภาพ</span></button>
+        <button class="tab" data-tab="inspect"><span class="ico">🔍</span><span data-i18n="tab.inspect">หาตำหนิ</span></button>
         <button class="tab" data-tab="draw"><span class="ico">✏️</span><span data-i18n="tab.draw">วาด &amp; ข้อความ</span></button>
         <button class="tab" data-tab="haar"><span class="ico">👁</span><span data-i18n="tab.haar">ตา / หน้า / ยิ้ม</span></button>
         <button class="tab" data-tab="face"><span class="ico">🪪</span><span data-i18n="tab.face">จำใบหน้า</span></button>
@@ -579,6 +580,92 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
         <div class="field" id="contWrap">
           <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="col.minArea">พื้นที่ขั้นต่ำ (px²)</label><b id="p_aV">300</b></div>
           <input type="range" id="p_area" min="0" max="8000" step="50" value="300" />
+        </div>
+      </div>
+
+      <!-- INSPECT -->
+      <div class="body pane hidden" id="pane-inspect">
+        <div class="field">
+          <label class="lbl" data-i18n="i.mode">สิ่งที่ตรวจ</label>
+          <select id="i_mode">
+            <option value="part" selected data-i18n="i.mode1">ชิ้นงาน — รูหาย / รอยขีด / คราบ</option>
+            <option value="pcb" data-i18n="i.mode2">แผ่น PCB — นับลายทองแดง</option>
+          </select>
+          <div class="hint" data-i18n="i.modeHint">แท็บนี้ไม่ใช้ AI เลย ใช้แค่ threshold, contour, พื้นที่ และรูปทรง</div>
+        </div>
+
+        <div id="i_partWrap">
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.partCut">แยกชิ้นงานออกจากพื้นหลัง</label><b id="i_partCutV">120</b></div>
+            <input type="range" id="i_partCut" min="0" max="255" value="120" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.minPart">พื้นที่ต่ำสุดที่นับเป็นชิ้นงาน (px²)</label><b id="i_minPartV">4000</b></div>
+            <input type="range" id="i_minPart" min="500" max="20000" step="100" value="4000" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.dark">รู: เข้มกว่าผิวชิ้นงาน (%)</label><b id="i_darkV">45</b></div>
+            <input type="range" id="i_dark" min="10" max="90" value="45" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.mark">รอย: เข้มกว่าผิวชิ้นงาน (%)</label><b id="i_markV">85</b></div>
+            <input type="range" id="i_mark" min="20" max="99" value="85" />
+            <div class="hint" data-i18n="i.pctHint">สองค่านี้เทียบกับความสว่างของผิวชิ้นงานเอง ไม่ใช่ค่าสีตายตัว จึงทนต่อแสงที่ไม่เท่ากัน</div>
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.holeArea">พื้นที่ต่ำสุดที่นับเป็นรู (px²)</label><b id="i_holeAreaV">120</b></div>
+            <input type="range" id="i_holeArea" min="0" max="2000" step="10" value="120" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.aspect">รอยขีด: ยาว / สั้น อย่างน้อย</label><b id="i_aspectV">4.0</b></div>
+            <input type="range" id="i_aspect" min="10" max="200" value="40" />
+            <div class="hint" data-i18n="i.aspectHint">คราบเข้มพอๆ กับรอยขีด สิ่งที่ต่างคือรูปทรง</div>
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.stainArea">คราบ: พื้นที่ตั้งแต่ (px²)</label><b id="i_stainAreaV">600</b></div>
+            <input type="range" id="i_stainArea" min="0" max="5000" step="50" value="600" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.holes">ชิ้นงานที่ดีมีรูกี่รู</label><b id="i_holesV">4</b></div>
+            <input type="range" id="i_holes" min="0" max="12" value="4" />
+          </div>
+        </div>
+
+        <div id="i_pcbWrap" class="hidden">
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.copper">ช่วงสีทองแดง (H)</label><b id="i_hV">10 – 40</b></div>
+            <input type="range" id="i_hlo" min="0" max="179" value="10" />
+            <input type="range" id="i_hhi" min="0" max="179" value="40" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.cuS">ทองแดง S ต่ำสุด</label><b id="i_sminV">80</b></div>
+            <input type="range" id="i_smin" min="0" max="255" value="80" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.cuV">ทองแดง V ต่ำสุด</label><b id="i_vminV">80</b></div>
+            <input type="range" id="i_vmin" min="0" max="255" value="80" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.boardS">สีเขียวของแผ่น S ต่ำสุด</label><b id="i_boardSV">70</b></div>
+            <input type="range" id="i_boardS" min="0" max="255" value="70" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.minBoard">พื้นที่ต่ำสุดที่นับเป็นแผ่น (px²)</label><b id="i_minBoardV">12000</b></div>
+            <input type="range" id="i_minBoard" min="2000" max="60000" step="500" value="12000" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.drill">รูเจาะ: เข้มกว่าค่านี้</label><b id="i_drillV">60</b></div>
+            <input type="range" id="i_drill" min="0" max="255" value="60" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.tracks">แบบบอกว่ามีกี่ลาย</label><b id="i_tracksV">3</b></div>
+            <input type="range" id="i_tracks" min="1" max="20" value="3" />
+          </div>
+          <div class="field">
+            <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="i.pcbHoles">แบบบอกว่ามีกี่รู</label><b id="i_pcbHolesV">6</b></div>
+            <input type="range" id="i_pcbHoles" min="0" max="40" value="6" />
+            <div class="hint" data-i18n="i.pcbHint">ลายขาด = นับได้มากกว่าแบบ, ลายช็อต = นับได้น้อยกว่าแบบ วัดครั้งเดียวจับได้ทั้งสองอย่าง</div>
+          </div>
         </div>
       </div>
 
@@ -1137,6 +1224,28 @@ const I18N = {
     'col.areaHint':'Filters out small noise blobs before counting',
     'col.morph':'Morphology Open before finding contours',
     'p.blur':'Blur','p.th':'Threshold','p.morph':'Morphology','p.cont':'Find contours + count',
+    'tab.inspect':'Find defects',
+    'i.mode':'What you are inspecting',
+    'i.mode1':'Machined part \u2014 missing hole, scratch, stain',
+    'i.mode2':'PCB \u2014 count the islands of copper',
+    'i.modeHint':'Nothing on this tab uses AI. Only threshold, contour, area and shape \u2014 everything the Image basics tab already does, put to work on a job.',
+    'i.partCut':'Part against the background',
+    'i.minPart':'Smallest blob that counts as a part (px\u00b2)',
+    'i.dark':'Hole: darker than this share of the face (%)',
+    'i.mark':'Mark: darker than this share of the face (%)',
+    'i.pctHint':'Both cuts are a share of each part\u2019s OWN face brightness, not a fixed grey level. That is what survives a lamp brighter on one side of the bench.',
+    'i.holeArea':'Smallest blob that counts as a hole (px\u00b2)',
+    'i.aspect':'Scratch: long / short at least',
+    'i.aspectHint':'A stain is just as dark as a scratch. What tells them apart is the shape.',
+    'i.stainArea':'Stain: area from (px\u00b2)',
+    'i.holes':'Holes a good part has',
+    'i.copper':'Copper hue range (H)',
+    'i.cuS':'Copper S min','i.cuV':'Copper V min',
+    'i.boardS':'Solder mask S min',
+    'i.minBoard':'Smallest blob that counts as a board (px\u00b2)',
+    'i.drill':'Drilled hole: darker than',
+    'i.tracks':'Tracks the design has','i.pcbHoles':'Holes the design has',
+    'i.pcbHint':'Open circuit = the count goes above the design. Short = it goes below. One measurement catches both.',
     'gen.title':'Code options','gen.device':'Target device','gen.input':'Image source in the code','gen.picam':'Camera type on the Raspberry Pi',
     'gen.picamUsb':'USB webcam (cv2.VideoCapture)','gen.picamCsi':'CSI ribbon camera (Picamera2)',
     'gen.picamHint':'The browser can only tune with USB cameras - pick CSI if you will deploy with the ribbon camera.',
@@ -1542,7 +1651,7 @@ document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
   if(t.dataset.mode) $('z_mode').value=t.dataset.mode;
   document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
   syncLabels();
-  ['circle','color','pre','line','draw','haar','face','codes'].forEach(p=>$('pane-'+p).classList.toggle('hidden',p!==TAB));
+  ['circle','color','pre','inspect','line','draw','haar','face','codes'].forEach(p=>$('pane-'+p).classList.toggle('hidden',p!==TAB));
   $('canvasResult').classList.toggle('drawmode', TAB==='draw');
   if(VIEW==='export') $('exportTabName').textContent=TAB_LABELS[TAB][LANG==='en'?1:0];
   render();
@@ -1632,6 +1741,24 @@ function syncLabels(){
   $('p_adV').textContent=$('p_block').value+' / '+$('p_C').value;
   $('p_cV').textContent=$('p_c1').value+' / '+$('p_c2').value;
   $('p_aV').textContent=$('p_area').value;
+  $('i_partCutV').textContent=$('i_partCut').value;
+  $('i_minPartV').textContent=$('i_minPart').value;
+  $('i_darkV').textContent=$('i_dark').value;
+  $('i_markV').textContent=$('i_mark').value;
+  $('i_holeAreaV').textContent=$('i_holeArea').value;
+  $('i_aspectV').textContent=(+$('i_aspect').value/10).toFixed(1);
+  $('i_stainAreaV').textContent=$('i_stainArea').value;
+  $('i_holesV').textContent=$('i_holes').value;
+  $('i_hV').textContent=Math.min(+$('i_hlo').value,+$('i_hhi').value)+' \u2013 '+Math.max(+$('i_hlo').value,+$('i_hhi').value);
+  $('i_sminV').textContent=$('i_smin').value;
+  $('i_vminV').textContent=$('i_vmin').value;
+  $('i_boardSV').textContent=$('i_boardS').value;
+  $('i_minBoardV').textContent=$('i_minBoard').value;
+  $('i_drillV').textContent=$('i_drill').value;
+  $('i_tracksV').textContent=$('i_tracks').value;
+  $('i_pcbHolesV').textContent=$('i_pcbHoles').value;
+  $('i_partWrap').classList.toggle('hidden', $('i_mode').value!=='part');
+  $('i_pcbWrap').classList.toggle('hidden', $('i_mode').value!=='pcb');
   $('f_thrV').textContent=$('f_thr').value;
   $('f_sfV').textContent=(+$('f_sf').value).toFixed(2);
   $('f_mnV').textContent=$('f_mn').value;
@@ -1743,6 +1870,15 @@ function params(){
       morph:$('p_morph').value,morphK:odd($('p_morphK').value),
       canny:$('p_canny').checked,c1:+$('p_c1').value,c2:+$('p_c2').value,
       cont:$('p_cont').checked,area:+$('p_area').value},
+    inspect:{mode:$('i_mode').value,
+      partCut:+$('i_partCut').value,minPart:+$('i_minPart').value,
+      dark:+$('i_dark').value,mark:Math.max(+$('i_dark').value+1,+$('i_mark').value),
+      holeArea:+$('i_holeArea').value,aspect:Math.max(1.1,+$('i_aspect').value/10),
+      stainArea:+$('i_stainArea').value,holes:+$('i_holes').value,
+      hlo:Math.min(+$('i_hlo').value,+$('i_hhi').value),hhi:Math.max(+$('i_hlo').value,+$('i_hhi').value),
+      smin:+$('i_smin').value,vmin:+$('i_vmin').value,boardS:+$('i_boardS').value,
+      minBoard:+$('i_minBoard').value,drill:+$('i_drill').value,
+      tracks:Math.max(1,+$('i_tracks').value),pcbHoles:+$('i_pcbHoles').value},
     face:{size:+$('f_size').value,thr:+$('f_thr').value,sf:Math.max(1.01,+$('f_sf').value),
       mn:+$('f_mn').value,dist:$('f_dist').checked},
     line:{blur:$('l_blur').checked,blurK:odd($('l_blurK').value),
@@ -1836,6 +1972,7 @@ function doRender(){
   if(TAB==='circle'){ [out,count,rows]=runCircle(srcMat,P.circle); }
   else if(TAB==='color'){ [out,count,rows]=runColor(srcMat,P.color); }
   else if(TAB==='pre'){ [out,count,rows]=runPre(srcMat,P.pre); }
+  else if(TAB==='inspect'){ [out,count,rows]=runInspect(srcMat,P.inspect); }
   else if(TAB==='line'){ [out,count,rows]=runLine(srcMat,P.line); }
   else if(TAB==='face'){
     const r=runFace(srcMat,P.face);
@@ -2024,6 +2161,218 @@ function runPre(src,Q){
 
 
 
+
+/* ---------------- defect inspection, with no model at all ---------------- */
+/* Three checks on a machined part, and the point is that each one is a
+   DIFFERENT kind of measurement:
+       missing hole   a COUNT   dark blobs, against the number it should have
+       scratch        a SHAPE   minAreaRect long / short
+       stain          an AREA   too many pixels, no shape worth measuring
+   A stain is just as dark as a scratch, so darkness alone gets both wrong.
+
+   The two brightness cuts are a share of each part's OWN face, not fixed grey
+   levels. That is what survives a lamp brighter on one side of the bench.
+
+   On a PCB the question is topology instead: count the separate islands of
+   copper against the number the design already gives you. An open circuit
+   pushes that count UP, a short pulls it DOWN - one measurement, two
+   opposite faults. */
+const INS_OK=[110,200,120,255];
+const INS_MIN_MARK=60;     // px - below this a mark is grain, not a fault
+const INS_MIN_LEN=40;      // px - a scratch has to be at least this long
+const INS_HOLE_SQ=2.0;     // a drilled hole is round; a shadow sliver is not
+const INS_COPPER_MIN=40;   // px - below this the copper mask is speckle
+
+function insMedian(mat){
+  // the median of a single-channel mat, straight from its own histogram
+  const d=mat.data, hist=new Uint32Array(256);
+  for(let i=0;i<d.length;i++) hist[d[i]]++;
+  const half=d.length>>1; let acc=0;
+  for(let v=0;v<256;v++){ acc+=hist[v]; if(acc>half) return v; }
+  return 128;
+}
+
+function insIslands(mask,minArea){
+  // How many separate white blobs. connectedComponentsWithStats is the direct
+  // way and hands back every area in one call; where that binding is missing,
+  // the external contours of the same mask are the same islands.
+  if(typeof cv.connectedComponentsWithStats==='function'){
+    const lab=new cv.Mat(), st=new cv.Mat(), ce=new cv.Mat();
+    const n=cv.connectedComponentsWithStats(mask,lab,st,ce);
+    let k=0;
+    for(let i=1;i<n;i++) if(st.intPtr(i,4)[0]>=minArea) k++;
+    lab.delete();st.delete();ce.delete();
+    return k;
+  }
+  const cs=new cv.MatVector(), h=new cv.Mat();
+  cv.findContours(mask,cs,h,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_SIMPLE);
+  let k=0;
+  for(let i=0;i<cs.size();i++){ const c=cs.get(i); if(cv.contourArea(c)>=minArea) k++; c.delete(); }
+  cs.delete();h.delete();
+  return k;
+}
+
+function insBoxes(mask,minArea){
+  // every blob above minArea, as a bounding box, in reading order
+  const cs=new cv.MatVector(), h=new cv.Mat(), out=[];
+  cv.findContours(mask,cs,h,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_SIMPLE);
+  for(let i=0;i<cs.size();i++){
+    const c=cs.get(i);
+    if(cv.contourArea(c)>=minArea) out.push(cv.boundingRect(c));
+    c.delete();
+  }
+  cs.delete();h.delete();
+  out.sort((a,b)=>(Math.floor(a.y/100)-Math.floor(b.y/100))||(a.x-b.x));
+  return out;
+}
+
+function insHoles(g,cut){
+  // Dark, the right size, and ROUND. The edge of a board and the shadow
+  // beside it are dark too, and a sliver of shadow can have a hole's area -
+  // what it does not have is a hole's shape.
+  const m=new cv.Mat();
+  cv.threshold(g,m,cut,255,cv.THRESH_BINARY_INV);
+  const k=cv.getStructuringElement(cv.MORPH_RECT,new cv.Size(3,3));
+  cv.morphologyEx(m,m,cv.MORPH_OPEN,k); k.delete();
+  const lo=Math.max(8,Math.round(g.cols*g.rows/1200)), hi=lo*20;
+  const cs=new cv.MatVector(), hh=new cv.Mat();
+  cv.findContours(m,cs,hh,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_SIMPLE);
+  let found=0;
+  for(let i=0;i<cs.size();i++){
+    const c=cs.get(i), ar=cv.contourArea(c);
+    if(ar>=lo&&ar<=hi){
+      const br=cv.boundingRect(c);
+      const lng=Math.max(br.width,br.height), sht=Math.max(1,Math.min(br.width,br.height));
+      if(lng/sht<=INS_HOLE_SQ) found++;
+    }
+    c.delete();
+  }
+  cs.delete();hh.delete();m.delete();
+  return found;
+}
+
+function insLabel(dst,r,text,colour,th){
+  const y = r.y>60 ? r.y-10 : r.y+r.height+22;
+  cv.rectangle(dst,new cv.Point(r.x,r.y),new cv.Point(r.x+r.width,r.y+r.height),new cv.Scalar(...colour),th);
+  cv.putText(dst,text,new cv.Point(r.x,y),cv.FONT_HERSHEY_SIMPLEX,0.6,new cv.Scalar(...colour),2,cv.LINE_AA);
+}
+
+function runInspect(src,I){
+  return I.mode==='pcb' ? insPcb(src,I) : insPart(src,I);
+}
+
+function insPart(src,I){
+  const dst=src.clone(), gray=new cv.Mat(), bin=new cv.Mat();
+  cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
+  cv.threshold(gray,bin,I.partCut,255,cv.THRESH_BINARY);
+  const k7=cv.getStructuringElement(cv.MORPH_RECT,new cv.Size(7,7));
+  cv.morphologyEx(bin,bin,cv.MORPH_CLOSE,k7); k7.delete();
+  const k3=cv.getStructuringElement(cv.MORPH_RECT,new cv.Size(3,3));
+  const th=Math.max(2,Math.round(src.cols/400));
+
+  const rows=[]; let n=0, bad=0;
+  insBoxes(bin,I.minPart).forEach(r=>{
+    const pad=Math.max(4,Math.round(Math.min(r.width,r.height)*0.07));
+    if(r.width<=pad*2+8||r.height<=pad*2+8) return;
+    const face=gray.roi(new cv.Rect(r.x+pad,r.y+pad,r.width-pad*2,r.height-pad*2)).clone();
+    const level=insMedian(face);
+    const darkCut=Math.max(1,Math.round(level*I.dark/100));
+    const markCut=Math.max(darkCut+1,Math.round(level*I.mark/100));
+
+    // 1. MISSING HOLE - a count
+    const holeMask=new cv.Mat();
+    cv.threshold(face,holeMask,darkCut,255,cv.THRESH_BINARY_INV);
+    cv.morphologyEx(holeMask,holeMask,cv.MORPH_OPEN,k3);
+    const holes=insIslands(holeMask,I.holeArea);
+
+    // darker than clean metal, but not a hole: that is a mark
+    const aM=new cv.Mat(), bM=new cv.Mat(), marks=new cv.Mat();
+    cv.threshold(face,aM,darkCut,255,cv.THRESH_BINARY);
+    cv.threshold(face,bM,markCut,255,cv.THRESH_BINARY_INV);
+    cv.bitwise_and(aM,bM,marks);
+    cv.morphologyEx(marks,marks,cv.MORPH_OPEN,k3);
+
+    let scratch=0, stain=0;
+    const mc=new cv.MatVector(), mh=new cv.Mat();
+    cv.findContours(marks,mc,mh,cv.RETR_EXTERNAL,cv.CHAIN_APPROX_SIMPLE);
+    for(let i=0;i<mc.size();i++){
+      const c=mc.get(i), ar=cv.contourArea(c);
+      if(ar>=INS_MIN_MARK){
+        const rr=cv.minAreaRect(c);
+        const lng=Math.max(rr.size.width,rr.size.height);
+        const sht=Math.max(1,Math.min(rr.size.width,rr.size.height));
+        // 2. SCRATCH - a shape.  3. STAIN - an area.
+        if(lng/sht>=I.aspect && lng>=INS_MIN_LEN) scratch=Math.max(scratch,lng);
+        else if(ar>=I.stainArea) stain=Math.max(stain,ar);
+      }
+      c.delete();
+    }
+    mc.delete();mh.delete();
+
+    const faults=[];
+    if(holes<I.holes) faults.push('missing hole '+holes+'/'+I.holes);
+    if(scratch) faults.push('scratch '+Math.round(scratch)+'px');
+    if(stain) faults.push('stain '+Math.round(stain)+'px');
+
+    n++;
+    const ok=!faults.length;
+    if(!ok) bad++;
+    insLabel(dst,r,ok?'OK':faults.join(' + '),ok?INS_OK:CRIM,th);
+    rows.push([n,r.x,r.y,level,holes,scratch?Math.round(scratch):'-',
+               stain?Math.round(stain):'-',ok?'OK':faults.join(' + ')]);
+
+    face.delete();holeMask.delete();aM.delete();bM.delete();marks.delete();
+  });
+
+  drawBadge(dst,'Parts: '+n+'   bad: '+bad);
+  k3.delete();gray.delete();bin.delete();
+  return [dst,n,{head:['#','x','y','face','holes','scratch','stain','verdict'],rows:rows}];
+}
+
+function insPcb(src,I){
+  const dst=src.clone(), gray=new cv.Mat();
+  cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
+
+  // The solder mask is the colourful green part. The copper inside it is a
+  // different colour, so the green mask comes back full of holes - one big
+  // CLOSE fills them and leaves a solid blob per board.
+  const bmask=hsvMask(src,[30,I.boardS,50],[95,255,255]);
+  const kb=cv.getStructuringElement(cv.MORPH_RECT,new cv.Size(45,45));
+  cv.morphologyEx(bmask,bmask,cv.MORPH_CLOSE,kb); kb.delete();
+  const th=Math.max(2,Math.round(src.cols/400));
+
+  const rows=[]; let n=0, bad=0;
+  insBoxes(bmask,I.minBoard).forEach(r=>{
+    const pad=10;                       // stay off the edge and its shadow
+    if(r.width<=pad*2+8||r.height<=pad*2+8) return;
+    const rect=new cv.Rect(r.x+pad,r.y+pad,r.width-pad*2,r.height-pad*2);
+    const roi=src.roi(rect).clone(), g=gray.roi(rect).clone();
+
+    const copper=hsvMask(roi,[I.hlo,I.smin,I.vmin],[I.hhi,255,255]);
+    const k3=cv.getStructuringElement(cv.MORPH_RECT,new cv.Size(3,3));
+    cv.morphologyEx(copper,copper,cv.MORPH_OPEN,k3); k3.delete();
+    const tracks=insIslands(copper,INS_COPPER_MIN);
+    const holes=insHoles(g,I.drill);
+
+    const faults=[];
+    if(tracks>I.tracks) faults.push('open circuit '+tracks+'/'+I.tracks);
+    else if(tracks<I.tracks) faults.push('short '+tracks+'/'+I.tracks);
+    if(holes<I.pcbHoles) faults.push('missing hole '+holes+'/'+I.pcbHoles);
+
+    n++;
+    const ok=!faults.length;
+    if(!ok) bad++;
+    insLabel(dst,r,ok?('OK  '+tracks+' tracks  '+holes+' holes'):faults.join(' + '),
+             ok?INS_OK:CRIM,th);
+    rows.push([n,r.x,r.y,tracks,holes,ok?'OK':faults.join(' + ')]);
+
+    roi.delete();g.delete();copper.delete();
+  });
+
+  drawBadge(dst,'Boards: '+n+'   bad: '+bad);
+  gray.delete();bmask.delete();
+  return [dst,n,{head:['#','x','y','tracks','holes','verdict'],rows:rows}];
+}
 
 /* ---------------- face recognition (browser demo) ---------------- */
 const PEOPLE=[];   // {name, samples:[Float32Array]}
@@ -4026,7 +4375,7 @@ $('canvasResult').addEventListener('click',e=>{
   if(TAB!=='color'&&TAB!=='haar'){
     TAB='color';
     document.querySelectorAll('.tab').forEach(x2=>x2.classList.toggle('on',x2.dataset.tab==='color'));
-    ['circle','color','pre','line','draw','haar','face','codes'].forEach(p2=>$('pane-'+p2).classList.toggle('hidden',p2!=='color'));
+    ['circle','color','pre','inspect','line','draw','haar','face','codes'].forEach(p2=>$('pane-'+p2).classList.toggle('hidden',p2!=='color'));
   }
   syncLabels(); render();
 });
@@ -4527,6 +4876,7 @@ function scaleBlock(P){
 
 function fileNameFor(){
   return {circle:'circle_detection.py',color:'color_detection.py',pre:'image_preprocess.py',
+          inspect:'defect_inspection.py',
           line:'line_detection.py',draw:'draw_shapes.py',haar:'haar_detection.py',
           face:'face_recognition_lbph.py',codes:'codes_and_markers.py'}[TAB];
 }
@@ -4954,6 +5304,240 @@ function codePre(P){
 
 
 const Q='"""';
+
+function codeInspect(P){
+  const G=P.gen, I=P.inspect;
+  const part = I.mode!=='pcb';
+  const o = part
+    ? header('Defect Inspection - a Count, a Shape and an Area',G,
+        ['Three checks, three different kinds of measurement:',
+         '  missing hole   a COUNT   dark blobs, against the number a good part has',
+         '  scratch        a SHAPE   minAreaRect long / short',
+         '  stain          an AREA   too many pixels, no shape worth measuring',
+         'No model and no dataset. Reach for one only when these stop working.'])
+    : header('PCB Inspection - Count the Islands of Copper',G,
+        ['An open circuit pushes the copper count UP, a short pulls it DOWN.',
+         'One measurement, two opposite faults, compared against the design.',
+         'The count only means anything if the copper mask is clean. Light the',
+         'board evenly before you touch a slider.']);
+
+  o.push('# ---------- '+L('พารามิเตอร์ที่จูนไว้','Tuned parameters')+' ----------');
+  o.push('WINDOW_NAME = "TESR '+(part?'Defect Inspection':'PCB Inspection')+'"');
+  o.push('SCALE_PERCENT = '+P.scale);
+  if(part){
+    o.push('PART_CUT = '+I.partCut+'            # '+L('ความสว่างที่แยกชิ้นงานออกจากพื้นหลัง','brightness that separates a part from the belt'));
+    o.push('MIN_PART_AREA = '+I.minPart);
+    o.push('DARK_PERCENT = '+I.dark+'         # '+L('เข้มกว่านี้ของผิวชิ้นงานเอง = รู','under this share of the part\'s own face = a hole'));
+    o.push('MARK_PERCENT = '+I.mark+'         # '+L('ระหว่างสองค่านี้ = รอย','between the two cuts = a mark'));
+    o.push('MIN_HOLE_AREA = '+I.holeArea);
+    o.push('SCRATCH_ASPECT = '+I.aspect.toFixed(1)+'      # '+L('ยาว / สั้น ตั้งแต่เท่านี้ = รอยขีด','long / short at or above this = a scratch'));
+    o.push('MIN_SCRATCH_LEN = 40');
+    o.push('MIN_STAIN_AREA = '+I.stainArea);
+    o.push('MIN_MARK_AREA = 60          # '+L('เล็กกว่านี้คือ noise ไม่ใช่ตำหนิ','smaller than this is grain, not a fault'));
+    o.push('HOLES_PER_PART = '+I.holes+'          # '+L('ชิ้นงานที่ดีมีกี่รู','how many holes a GOOD part has'));
+  }else{
+    o.push('COPPER_LO = ('+I.hlo+', '+I.smin+', '+I.vmin+')   # HSV');
+    o.push('COPPER_HI = ('+I.hhi+', 255, 255)');
+    o.push('BOARD_LO = (30, '+I.boardS+', 50)      # '+L('สีเขียวของ solder mask','the green solder mask'));
+    o.push('BOARD_HI = (95, 255, 255)');
+    o.push('MIN_BOARD_AREA = '+I.minBoard);
+    o.push('MIN_COPPER_AREA = 40        # '+L('เล็กกว่านี้คือ noise ไม่ใช่ลาย','smaller than this is speckle, not a track'));
+    o.push('DRILL_CUT = '+I.drill+'             # '+L('เข้มกว่าค่านี้คือรูเจาะ','darker than this is a drilled hole'));
+    o.push('HOLE_SQUARENESS = 2.0       # '+L('รูเจาะกลม เงาที่ขอบไม่กลม','a hole is round, a shadow sliver is not'));
+    o.push('TRACKS_BY_DESIGN = '+I.tracks);
+    o.push('HOLES_BY_DESIGN = '+I.pcbHoles);
+  }
+  o.push('');
+  o.push('OK_COLOUR = (120, 200, 110)   # BGR');
+  o.push('NG_COLOUR = (60, 60, 240)');
+  o.push('');
+  o.push(...saveBlock(G));
+  o.push(...mqttBlock(G));
+  o.push(...scaleBlock(P));
+
+  o.push('def boxes_in(mask, min_area):');
+  o.push('    '+Q+L('กล่องของทุก blob ที่ใหญ่พอ เรียงจากบนลงล่าง ซ้ายไปขวา',
+                    'Every blob above min_area, as a box, in reading order.')+Q);
+  o.push('    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)');
+  o.push('    found = [cv2.boundingRect(c) for c in contours');
+  o.push('             if cv2.contourArea(c) >= min_area]');
+  o.push('    found.sort(key=lambda b: (b[1] // 100, b[0]))');
+  o.push('    return found');
+  o.push('');
+  o.push('');
+
+  if(part){
+    o.push('def inspect_part(gray, box):');
+    o.push('    '+Q+L('ตรวจสามอย่างบนชิ้นงานเดียว','The three checks, on one part.')+Q);
+    o.push('    x, y, w, h = box');
+    o.push('    # '+L('หลบเส้นขอบของชิ้นงานเอง ขอบเข้มไม่ใช่ตำหนิ','stay off the part\'s own outline - that dark edge is not a fault'));
+    o.push('    pad = max(4, int(min(w, h) * 0.07))');
+    o.push('    face = gray[y + pad:y + h - pad, x + pad:x + w - pad]');
+    o.push('    if face.size == 0:');
+    o.push('        return None');
+    o.push('');
+    o.push('    # '+L('เทียบกับผิวของชิ้นงานเอง ไม่ใช่ค่าสีตายตัว','measured against this part\'s OWN face, not a fixed grey level'));
+    o.push('    level = float(np.median(face))');
+    o.push('    dark_cut = int(level * DARK_PERCENT / 100.0)');
+    o.push('    mark_cut = max(dark_cut + 1, int(level * MARK_PERCENT / 100.0))');
+    o.push('    kernel = np.ones((3, 3), np.uint8)');
+    o.push('');
+    o.push('    # 1. '+L('รูหาย - นับ','MISSING HOLE - a count'));
+    o.push('    holes_mask = cv2.inRange(face, 0, dark_cut)');
+    o.push('    holes_mask = cv2.morphologyEx(holes_mask, cv2.MORPH_OPEN, kernel)');
+    o.push('    contours, _ = cv2.findContours(holes_mask, cv2.RETR_EXTERNAL,');
+    o.push('                                   cv2.CHAIN_APPROX_SIMPLE)');
+    o.push('    holes = sum(1 for c in contours if cv2.contourArea(c) >= MIN_HOLE_AREA)');
+    o.push('');
+    o.push('    # '+L('เข้มกว่าผิว แต่ไม่ถึงกับเป็นรู = รอย','darker than clean metal, but not a hole: that is a mark'));
+    o.push('    marks = cv2.inRange(face, dark_cut + 1, mark_cut)');
+    o.push('    marks = cv2.morphologyEx(marks, cv2.MORPH_OPEN, kernel)');
+    o.push('    contours, _ = cv2.findContours(marks, cv2.RETR_EXTERNAL,');
+    o.push('                                   cv2.CHAIN_APPROX_SIMPLE)');
+    o.push('    scratch, stain = 0.0, 0');
+    o.push('    for contour in contours:');
+    o.push('        area = cv2.contourArea(contour)');
+    o.push('        if area < MIN_MARK_AREA:');
+    o.push('            continue');
+    o.push('        (_, _), (rw, rh), _ = cv2.minAreaRect(contour)');
+    o.push('        long_side, short_side = max(rw, rh), max(1.0, min(rw, rh))');
+    o.push('        if long_side / short_side >= SCRATCH_ASPECT and long_side >= MIN_SCRATCH_LEN:');
+    o.push('            scratch = max(scratch, long_side)      # 2. '+L('รอยขีด - รูปทรง','SCRATCH - a shape'));
+    o.push('        elif area >= MIN_STAIN_AREA:');
+    o.push('            stain = max(stain, int(area))          # 3. '+L('คราบ - พื้นที่','STAIN - an area'));
+    o.push('');
+    o.push('    faults = []');
+    o.push('    if holes < HOLES_PER_PART:');
+    o.push('        faults.append("missing hole %d/%d" % (holes, HOLES_PER_PART))');
+    o.push('    if scratch:');
+    o.push('        faults.append("scratch %d px" % round(scratch))');
+    o.push('    if stain:');
+    o.push('        faults.append("stain %d px" % stain)');
+    o.push('    return {"x": x, "y": y, "w": w, "h": h, "face": round(level),');
+    o.push('            "holes": holes, "scratch": round(scratch), "stain": stain,');
+    o.push('            "faults": faults}');
+    o.push('');
+    o.push('');
+    o.push('def process(frame):');
+    if(P.scale<100) o.push('    frame = resize_frame(frame)');
+    o.push('    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)');
+    o.push('    _, binary = cv2.threshold(gray, PART_CUT, 255, cv2.THRESH_BINARY)');
+    o.push('    binary = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, np.ones((7, 7), np.uint8))');
+    o.push('');
+    o.push('    result = frame.copy()');
+    o.push('    parts, bad = [], 0');
+    o.push('    for box in boxes_in(binary, MIN_PART_AREA):');
+    o.push('        verdict = inspect_part(gray, box)');
+    o.push('        if verdict is None:');
+    o.push('            continue');
+    o.push('        parts.append(verdict)');
+    o.push('        x, y, w, h = box');
+    o.push('        ok = not verdict["faults"]');
+    o.push('        bad += 0 if ok else 1');
+    o.push('        colour = OK_COLOUR if ok else NG_COLOUR');
+    o.push('        cv2.rectangle(result, (x, y), (x + w, y + h), colour, 2)');
+    o.push('        text = "OK" if ok else " + ".join(verdict["faults"])');
+    o.push('        ty = y - 10 if y > 60 else y + h + 22');
+    o.push('        cv2.putText(result, text, (x, ty), cv2.FONT_HERSHEY_SIMPLEX,');
+    o.push('                    0.6, colour, 2, cv2.LINE_AA)');
+    o.push('');
+    o.push('    cv2.putText(result, f"Parts: {len(parts)}  bad: {bad}", (12, 32),');
+    o.push('                cv2.FONT_HERSHEY_SIMPLEX, 0.8, OK_COLOUR if bad == 0 else NG_COLOUR,');
+    o.push('                2, cv2.LINE_AA)');
+    o.push('    info = {"count": len(parts), "bad": bad, "parts": parts, "ts": time.time()}');
+    o.push('    return result, info');
+  }else{
+    o.push('def copper_mask(bgr):');
+    o.push('    '+Q+L('ลายทองแดงแยกด้วยสี inRange ใน HSV ครั้งเดียว',
+                      'The gold plating, by colour. One inRange in HSV, nothing clever.')+Q);
+    o.push('    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)');
+    o.push('    mask = cv2.inRange(hsv, COPPER_LO, COPPER_HI)');
+    o.push('    return cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))');
+    o.push('');
+    o.push('');
+    o.push('def count_holes(gray_roi):');
+    o.push('    '+Q+L('นับรูเจาะ: เข้ม ขนาดพอดี และกลม',
+                      'Count the drilled holes: dark, the right size, and round.')+Q);
+    o.push('    mask = cv2.inRange(gray_roi, 0, DRILL_CUT)');
+    o.push('    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))');
+    o.push('    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,');
+    o.push('                                   cv2.CHAIN_APPROX_SIMPLE)');
+    o.push('    # '+L('ขอบแผ่นและเงาก็เข้ม และอาจมีพื้นที่เท่ารู แต่ไม่กลม',
+                      'the board edge and its shadow are dark too, and can even have'));
+    o.push('    # '+L('จึงต้องกรองด้วยรูปทรงด้วย','a hole\'s area - what they do not have is a hole\'s shape'));
+    o.push('    low = max(8, (gray_roi.shape[0] * gray_roi.shape[1]) // 1200)');
+    o.push('    high = low * 20');
+    o.push('    found = 0');
+    o.push('    for contour in contours:');
+    o.push('        area = cv2.contourArea(contour)');
+    o.push('        if not low <= area <= high:');
+    o.push('            continue');
+    o.push('        _, _, w, h = cv2.boundingRect(contour)');
+    o.push('        if max(w, h) / float(max(1, min(w, h))) <= HOLE_SQUARENESS:');
+    o.push('            found += 1');
+    o.push('    return found');
+    o.push('');
+    o.push('');
+    o.push('def process(frame):');
+    if(P.scale<100) o.push('    frame = resize_frame(frame)');
+    o.push('    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)');
+    o.push('    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)');
+    o.push('');
+    o.push('    # '+L('หาแผ่นก่อน: ทองแดงอยู่ในแผ่นแต่คนละสี mask จึงเป็นรู ต้อง CLOSE ปิด',
+                      'find the boards first. The copper sits inside the board but is a'));
+    o.push('    # '+L('ให้เป็นก้อนเดียวต่อแผ่น',
+                      'different colour, so one big CLOSE fills the holes it leaves'));
+    o.push('    board = cv2.inRange(hsv, BOARD_LO, BOARD_HI)');
+    o.push('    board = cv2.morphologyEx(board, cv2.MORPH_CLOSE, np.ones((45, 45), np.uint8))');
+    o.push('');
+    o.push('    result = frame.copy()');
+    o.push('    boards, bad = [], 0');
+    o.push('    for (x, y, w, h) in boxes_in(board, MIN_BOARD_AREA):');
+    o.push('        pad = 10                 # '+L('หลบขอบแผ่นและเงา','stay off the edge and its shadow'));
+    o.push('        if w <= pad * 2 + 8 or h <= pad * 2 + 8:');
+    o.push('            continue');
+    o.push('        roi = frame[y + pad:y + h - pad, x + pad:x + w - pad]');
+    o.push('        g = gray[y + pad:y + h - pad, x + pad:x + w - pad]');
+    o.push('');
+    o.push('        # 1. '+L('นับเกาะทองแดง เทียบกับแบบ','TRACKS - count the separate islands of copper'));
+    o.push('        n_labels, labels = cv2.connectedComponents(copper_mask(roi))');
+    o.push('        tracks = sum(1 for i in range(1, n_labels)');
+    o.push('                     if int(np.count_nonzero(labels == i)) >= MIN_COPPER_AREA)');
+    o.push('        holes = count_holes(g)      # 2. '+L('นับรูเจาะ','HOLES'));
+    o.push('');
+    o.push('        faults = []');
+    o.push('        if tracks > TRACKS_BY_DESIGN:');
+    o.push('            faults.append("open circuit %d/%d" % (tracks, TRACKS_BY_DESIGN))');
+    o.push('        elif tracks < TRACKS_BY_DESIGN:');
+    o.push('            faults.append("short %d/%d" % (tracks, TRACKS_BY_DESIGN))');
+    o.push('        if holes < HOLES_BY_DESIGN:');
+    o.push('            faults.append("missing hole %d/%d" % (holes, HOLES_BY_DESIGN))');
+    o.push('');
+    o.push('        boards.append({"x": x, "y": y, "w": w, "h": h, "tracks": tracks,');
+    o.push('                       "holes": holes, "faults": faults})');
+    o.push('        ok = not faults');
+    o.push('        bad += 0 if ok else 1');
+    o.push('        colour = OK_COLOUR if ok else NG_COLOUR');
+    o.push('        cv2.rectangle(result, (x, y), (x + w, y + h), colour, 2)');
+    o.push('        text = (f"OK  tracks {tracks}  holes {holes}" if ok');
+    o.push('                else " + ".join(faults))');
+    o.push('        ty = y - 10 if y > 60 else y + h + 22');
+    o.push('        cv2.putText(result, text, (x, ty), cv2.FONT_HERSHEY_SIMPLEX,');
+    o.push('                    0.52, colour, 2, cv2.LINE_AA)');
+    o.push('');
+    o.push('    cv2.putText(result, f"Boards: {len(boards)}  bad: {bad}", (12, 32),');
+    o.push('                cv2.FONT_HERSHEY_SIMPLEX, 0.8, OK_COLOUR if bad == 0 else NG_COLOUR,');
+    o.push('                2, cv2.LINE_AA)');
+    o.push('    info = {"count": len(boards), "bad": bad, "boards": boards, "ts": time.time()}');
+    o.push('    return result, info');
+  }
+  o.push('');
+  o.push('');
+  o.push(...captureBlock(G));
+  o.push(...mainBlock(G));
+  return o.join('\n');
+}
+
 function pyShape(sh){
   const c='['+sh.bgr.join(', ')+']';
   if(sh.type==='line')      return '{"type": "line", "p1": ['+sh.x1.toFixed(3)+', '+sh.y1.toFixed(3)+'], "p2": ['+sh.x2.toFixed(3)+', '+sh.y2.toFixed(3)+'],\n     "color": '+c+', "thickness": '+sh.th+', "aa": '+(sh.aa?'True':'False')+'}';
@@ -6262,7 +6846,7 @@ function paramSummary(P){
   return rows;
 }
 function buildCode(P){
-  CODE = asciiSafe({circle:codeCircle,color:codeColor,pre:codePre,line:codeLine,draw:codeDraw,
+  CODE = asciiSafe({circle:codeCircle,color:codeColor,pre:codePre,inspect:codeInspect,line:codeLine,draw:codeDraw,
           haar:codeHaar,face:codeFace,codes:codeCodes}[TAB](P));
   $('fileName').textContent=fileNameFor();
   const st=new Date();
@@ -6329,7 +6913,8 @@ function deployWarn(){
 let VIEW='work';
 const TAB_LABELS={
   circle:['⭕ หาวงกลม','⭕ Find circles'], color:['🎨 จับสี & นับชิ้น','🎨 Colour & count'],
-  pre:['🛠 ปรับแต่งภาพ','🛠 Image basics'], line:['📏 หาเส้นตรง','📏 Find lines'],
+  pre:['🛠 ปรับแต่งภาพ','🛠 Image basics'],
+  inspect:['🔍 หาตำหนิ','🔍 Find defects'], line:['📏 หาเส้นตรง','📏 Find lines'],
   draw:['✏️ วาด & ข้อความ','✏️ Draw & text'], haar:['👁 ตา / หน้า / ยิ้ม','👁 Eyes / face / smile'],
   face:['🪪 จำใบหน้า','🪪 Face recognition'],
   codes:['🔳 โค้ด & มาร์กเกอร์','🔳 Codes & markers']};

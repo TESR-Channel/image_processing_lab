@@ -27,6 +27,7 @@ Everything is processed by **OpenCV.js (WebAssembly) on the user's machine** —
 | **Circles (Hough)** | `CircleDetectionFromImageEX1/2/3.py`, `CircleDetectionFromImage_GUI.py` |
 | **Colour (HSV)** | `ColorDetection.py`, `ColorDetection2.py`, `ColorDetection3.py`, `ColorDetection_with_GUI.py` |
 | **Image basics** | Gray → Blur → Threshold → Morphology → Canny → Contour |
+| **Find defects** | New — rule-based inspection with no model at all. A machined part: missing hole (a *count*), scratch (a *shape* — `minAreaRect` long/short), stain (an *area*). A PCB: `connectedComponents` on the copper against the design count, where an open circuit pushes it up and a short pulls it down |
 | **Lines (Hough)** | `Canny_Edge.py`, `CannyEdge_With_GUI.py`, `HoughLine(.py/__GUI.py)`, `HoughLineP(.py/__GUI.py)` |
 | **Draw & text** | `Drawing_Line.py`, `Drawing_Rectangle.py`, `Drawing_Circle.py`, `Put_Text.py` |
 | **Haar Cascade** | `EyesDetectionusingHaarCascades.py`, `EyesDetectionWithWebcam.py`, `EyesDetectionWithKinect.py` |
@@ -198,6 +199,7 @@ The TESR name and logo are trademarks of TESR Co., Ltd. and are not covered by t
 | **วงกลม (Hough)** | `CircleDetectionFromImageEX1/2/3.py`, `CircleDetectionFromImage_GUI.py` |
 | **สี (HSV)** | `ColorDetection.py`, `2`, `3`, `_with_GUI.py` |
 | **ภาพพื้นฐาน** | Gray → Blur → Threshold → Morphology → Canny → Contour |
+| **หาตำหนิ** | ของใหม่ — ตรวจตำหนิด้วยกฎล้วน ๆ ไม่ใช้โมเดลเลย ชิ้นงาน: รูหาย (*นับ*), รอยขีด (*รูปทรง* — `minAreaRect` ยาว/สั้น), คราบ (*พื้นที่*) แผ่น PCB: `connectedComponents` นับลายทองแดงเทียบกับแบบ ลายขาดนับได้มากขึ้น ลายช็อตนับได้น้อยลง |
 | **เส้นตรง (Hough)** | `Canny_Edge.py`, `CannyEdge_With_GUI.py`, `HoughLine`, `HoughLineP` ทั้งชุด |
 | **วาด & ข้อความ** | `Drawing_Line/Rectangle/Circle.py`, `Put_Text.py` |
 | **Haar Cascade** | `EyesDetection` ทั้ง 3 ไฟล์ |
