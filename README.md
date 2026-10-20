@@ -8,6 +8,12 @@
 
 Thai Embedded System and Robotics (TESR) · MIT License
 
+### 🔗 เปิดใช้งานได้เลย · Open the Lab
+
+**[https://tesr-channel.github.io/image_processing_lab/](https://tesr-channel.github.io/image_processing_lab/)**
+
+ไม่ต้องติดตั้งอะไร เปิดในเบราว์เซอร์ได้ทันที · Nothing to install — runs right in the browser
+
 [English](#english) · [ภาษาไทย](#ภาษาไทย)
 
 </div>
@@ -234,7 +240,7 @@ python -m http.server 8000
 
 Deploy ขึ้น GitHub Pages: **Settings → Pages → Source: GitHub Actions** แล้ว workflow ใน `.github/workflows/deploy.yml` จะจัดการให้ทุกครั้งที่ push เข้า `main`
 
-ใช้แบบออฟไลน์: ดาวน์โหลด `opencv.js` จาก https://docs.opencv.org/4.10.0/opencv.js มาไว้ที่ `assets/opencv.js` (ประมาณ 10 MB) เท่านั้น ไม่ต้องแก้โค้ด เพราะหน้าเว็บลองโหลดจาก `assets/opencv.js` เป็นอันดับแรกอยู่แล้ว ถ้าไม่มีไฟล์ก็จะตกไปใช้ CDN ให้เอง และถ้า CDN ค้างไม่ตอบ ระบบจะรอ 15 วินาทีแล้วเปลี่ยนไปแหล่งถัดไป ไม่ค้างอยู่ที่ “กำลังโหลด OpenCV.js” ตลอดไปเหมือนเดิม
+ใช้แบบออฟไลน์: ดาวน์โหลด `opencv.js` จาก https://docs.opencv.org/4.10.0/opencv.js มาไว้ที่ `assets/opencv.js` (ประมาณ 10 MB) เท่านั้น ไม่ต้องแก้โค้ด เพราะหน้าเว็บลองโหลดจาก `assets/opencv.js` เป็นอันดับแรกอยู่แล้ว ถ้าไม่มีไฟล์ก็จะตกไปใช้ CDN ให้เอง และถ้า CDN ค้างไม่ตอบ ระบบจะรอ 15 วินาทีแล้วเปลี่ยนไปแหล่งถัดไป ไม่ค้างอยู่ที่ "กำลังโหลด OpenCV.js" ตลอดไปเหมือนเดิม
 
 ### โครงสร้างที่ถูกต้อง
 
