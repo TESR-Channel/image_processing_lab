@@ -1449,7 +1449,7 @@ const imgEl = new Image();
 /* Shown in the header, written into every generated script and every
    ready-to-run zip, so a script on a Pi can be traced back to the page that
    made it. Small fix -> third number; something new to use -> second. */
-const APP_VERSION='1.1.0';
+const APP_VERSION='1.2.0';
 document.getElementById('appVer').textContent='v'+APP_VERSION;
 let imgLoaded=false, currentName='ex2.jpg';
 const SAMPLES=[
@@ -4703,8 +4703,14 @@ function header(title,G,extra,opts){
       : L('กล้อง USB ใช้ V4L2 ไม่ต้องใช้ picamera2','USB webcam via V4L2 - picamera2 not needed'));
   if(G.device==='kinect'&&G.input==='camera') note='   # '+L('freenect ลงผ่าน pip ไม่ได้ ต้อง build libfreenect เอง','freenect is not on pip, build libfreenect yourself');
   o.push('Install  : pip install '+pkgs+note);
-  o.push('Run      : python '+fileNameFor()+(G.input==='image'?' --source path/to/image.jpg':''));
-  if(G.input!=='image') o.push('Quit     : '+L('กด q หรือ ESC ที่หน้าต่างแสดงผล','press q or ESC on the display window'));
+  if(isKinectCam(G)) o.push('Run      : python '+fileNameFor());
+  else{
+    o.push('Run      : python '+fileNameFor()+' --camera usb --source 0     # USB webcam 0 (another: --source 1)');
+    o.push('           python '+fileNameFor()+' --source photo.jpg          # one picture');
+    o.push('           python '+fileNameFor()+' --source clip.mp4           # a video file');
+    if(G.device==='pi'||G.device==='jetson') o.push('           python '+fileNameFor()+' --camera csi                # ribbon camera');
+  }
+  o.push('Quit     : press q or ESC on the display window');
   o.push('');
   o.push(L('หมายเหตุสำคัญ:','Important:'));
   o.push(L('  ค่าพารามิเตอร์ชุดนี้จูนจากภาพนิ่งในเบราว์เซอร์ ผลบนกล้องจริงจะต่างออกไป',
@@ -4718,14 +4724,13 @@ function header(title,G,extra,opts){
   o.push('import argparse');
   o.push('import sys');
   o.push('import time');
-  if(G.save||opts.os) o.push('import os');
+  o.push('import os');
   if(G.mqtt||opts.json) o.push('import json');
   o.push('');
   o.push('import cv2');
   o.push('import numpy as np');
   if(G.mqtt) o.push('import paho.mqtt.client as mqtt');
   if(opts.imports) opts.imports.forEach(line=>o.push(line));
-  if(G.device==='pi'&&G.input==='camera'&&G.picam==='csi') o.push('from picamera2 import Picamera2');
   if(G.device==='kinect'&&G.input==='camera') o.push('import freenect');
   o.push('');
   return o;
@@ -4759,190 +4764,255 @@ function mqttBlock(G){
     ''];
 }
 
+function isKinectCam(G){ return G.device==='kinect'&&G.input==='camera'; }
+function defaultCamera(G){ return (G.device==='pi'&&G.picam==='csi')?'csi':'usb'; }
 function captureBlock(G){
   const o=[];
-  if(G.input==='image'){
-    o.push('def load_image(path):',
-      '    frame = cv2.imread(path)',
-      '    if frame is None:',
-      '        print("[ERROR] '+L('เปิดไฟล์ภาพไม่ได้','cannot open image')+':", path)',
-      '        sys.exit(1)',
-      '    return frame','');
-    return o;
-  }
-  if(G.input==='video'){
-    o.push('def open_source(path):',
-      '    cap = cv2.VideoCapture(path)',
-      '    if not cap.isOpened():',
-      '        print("[ERROR] '+L('เปิดวิดีโอไม่ได้','cannot open video')+':", path)',
-      '        sys.exit(1)',
-      '    return cap','');
-    return o;
-  }
-  if(G.device==='kinect'){
+  if(isKinectCam(G)){
     o.push('def get_video():',
-      '    """'+L('อ่านภาพ RGB จาก Kinect แล้วแปลงเป็น BGR','Grab an RGB frame from the Kinect and convert it to BGR')+'"""',
+      '    """Grab an RGB frame from the Kinect and convert it to BGR"""',
       '    array, _ = freenect.sync_get_video()',
       '    return cv2.cvtColor(array, cv2.COLOR_RGB2BGR)','');
     return o;
   }
-  if(G.device==='pi'&&G.picam==='csi'){
-    o.push('def open_camera(width=1280, height=720):',
-      '    """'+L('เปิดกล้อง CSI ของ Raspberry Pi ผ่าน Picamera2','Open the Raspberry Pi CSI camera through Picamera2')+'"""',
-      '    picam = Picamera2()',
-      '    config = picam.create_preview_configuration(',
-      '        main={"size": (width, height), "format": "RGB888"})',
-      '    picam.configure(config)',
-      '    picam.start()',
-      '    time.sleep(1.0)  # '+L('รอ auto-exposure นิ่ง','let auto-exposure settle'),
-      '    return picam','');
-    return o;
-  }
-  if(G.device==='jetson'){
-    o.push('def gstreamer_pipeline(sensor_id=0, width=1280, height=720, fps=30, flip=0):',
-      '    """'+L('ไปป์ไลน์สำหรับกล้อง CSI บน Jetson (ใช้ USB camera ให้เปลี่ยนไปใช้ cv2.VideoCapture(0))',
-                 'CSI camera pipeline for Jetson (for USB cameras use cv2.VideoCapture(0) instead)')+'"""',
-      '    return (',
-      '        f"nvarguscamerasrc sensor-id={sensor_id} ! "',
-      '        f"video/x-raw(memory:NVMM), width={width}, height={height}, framerate={fps}/1 ! "',
-      '        f"nvvidconv flip-method={flip} ! video/x-raw, format=BGRx ! "',
-      '        "videoconvert ! video/x-raw, format=BGR ! appsink drop=true max-buffers=1"',
-      '    )','',
-      'def open_camera():',
-      '    cap = cv2.VideoCapture(gstreamer_pipeline(), cv2.CAP_GSTREAMER)',
-      '    if not cap.isOpened():',
-      '        print("[WARN] '+L('เปิดกล้อง CSI ไม่ได้ ลองใช้ USB camera แทน','CSI camera failed, falling back to USB camera')+'")',
-      '        cap = cv2.VideoCapture(0)',
-      '    if not cap.isOpened():',
-      '        print("[ERROR] '+L('ไม่พบกล้อง','no camera found')+'")',
+  o.push('# ---------- Input: --camera / --source (same words as the TESR course) ----------',
+    'DEFAULT_CAMERA = "'+defaultCamera(G)+'"',
+    'IMAGE_EXT = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp")',
+    '',
+    '',
+    'class Source:',
+    '    """Frames from a camera, a video file, a stream or one still picture."""',
+    '',
+    '    def __init__(self, cap=None, picam=None, still=None):',
+    '        self.cap, self.picam, self.still = cap, picam, still',
+    '',
+    '    def read(self):',
+    '        """The next frame in BGR, or None when there are no more."""',
+    '        if self.picam is not None:',
+    '            return cv2.cvtColor(self.picam.capture_array(), cv2.COLOR_RGB2BGR)',
+    '        if self.still is not None:',
+    '            frame, self.still = self.still, None',
+    '            return frame',
+    '        ok, frame = self.cap.read()',
+    '        return frame if ok else None',
+    '',
+    '    def release(self):',
+    '        if self.cap is not None:',
+    '            self.cap.release()',
+    '        if self.picam is not None:',
+    '            self.picam.stop()',
+    '',
+    '',
+    'def camera_kind(text):',
+    '    """--camera usb | csi | ip | file  (an old-style number such as --camera 1 still works)"""',
+    '    text = str(text).strip().lower()',
+    '    if text.isdigit() or text in ("usb", "csi", "ip", "file"):',
+    '        return text',
+    '    raise argparse.ArgumentTypeError("use usb, csi, ip or file")',
+    '',
+    '',
+    'def add_input_args(parser):',
+    '    parser.add_argument("--camera", type=camera_kind, default=DEFAULT_CAMERA,',
+    '                        metavar="{usb,csi,ip,file}",',
+    '                        help="usb webcam (default) | csi ribbon camera on Pi / Jetson | "',
+    '                             "ip stream | file")',
+    '    parser.add_argument("--source", default="0",',
+    '                        help="usb / csi: camera number 0, 1, 2 ...  |  "',
+    '                             "file: photo.jpg or clip.mp4  |  ip: rtsp://...")',
+    '',
+    '');
+  // the ribbon camera, per device
+  if(G.device==='pi'){
+    o.push('def open_csi(index, width, height):',
+      '    """Raspberry Pi ribbon camera through Picamera2 (imported only when asked for)."""',
+      '    try:',
+      '        from picamera2 import Picamera2',
+      '    except ImportError:',
+      '        print("[ERROR] Picamera2 is not visible in this Python.")',
+      '        print("        Run install_pi.sh (it makes the venv with --system-site-packages),")',
+      '        print("        or use a USB webcam:  --camera usb --source 0")',
       '        sys.exit(1)',
-      '    return cap','');
-    return o;
+      '    picam = Picamera2(index)',
+      '    picam.configure(picam.create_preview_configuration(',
+      '        main={"size": (width, height), "format": "RGB888"}))',
+      '    picam.start()',
+      '    time.sleep(1.0)  # let auto-exposure settle',
+      '    return Source(picam=picam)',
+      '','');
+  }else if(G.device==='jetson'){
+    o.push('def open_csi(index, width, height, fps=30):',
+      '    """Jetson ribbon camera through GStreamer (needs the JetPack OpenCV)."""',
+      '    pipeline = (',
+      '        f"nvarguscamerasrc sensor-id={index} ! "',
+      '        f"video/x-raw(memory:NVMM), width={width}, height={height}, framerate={fps}/1 ! "',
+      '        "nvvidconv ! video/x-raw, format=BGRx ! "',
+      '        "videoconvert ! video/x-raw, format=BGR ! appsink drop=true max-buffers=1"',
+      '    )',
+      '    cap = cv2.VideoCapture(pipeline, cv2.CAP_GSTREAMER)',
+      '    if not cap.isOpened():',
+      '        print("[ERROR] cannot open the CSI camera. Check the ribbon cable, and that")',
+      '        print("        this OpenCV has GStreamer (install_jetson.sh keeps the JetPack one).")',
+      '        print("        USB webcam instead:  --camera usb --source 0")',
+      '        sys.exit(1)',
+      '    return Source(cap=cap)',
+      '','');
+  }else{
+    o.push('def open_csi(index, width, height):',
+      '    print("[ERROR] --camera csi is for a Raspberry Pi or Jetson ribbon camera.")',
+      '    print("        On a PC use a USB webcam:  --camera usb --source 0")',
+      '    sys.exit(1)',
+      '','');
   }
-  o.push('def open_camera(index=0, width=1280, height=720):',
-    '    cap = cv2.VideoCapture(index)',
-    '    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)',
-    '    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)',
-    '    if not cap.isOpened():',
-    '        print("[ERROR] '+L('เปิดกล้องไม่ได้ ตรวจสอบหมายเลขกล้องและสิทธิ์การใช้งาน','cannot open camera, check the index and permissions')+'")',
+  o.push('def open_input(camera="usb", source="0", width=1280, height=720):',
+    '    """Turn --camera / --source into a Source.',
+    '',
+    '    --camera usb --source 0     USB webcam 0 (another camera: --source 1, 2 ...)',
+    '    --source photo.jpg          one still picture',
+    '    --source clip.mp4           a video file',
+    '    --camera ip --source rtsp://...   a network stream',
+    '    --camera csi                ribbon camera (Raspberry Pi / Jetson)',
+    '    """',
+    '    camera, source = str(camera), str(source)',
+    '    if camera.isdigit():            # old style: --camera 1',
+    '        camera, source = "usb", camera',
+    '    if camera == "csi":',
+    '        return open_csi(int(source) if source.isdigit() else 0, width, height)',
+    '    if source.isdigit() and camera == "usb":',
+    '        cap = cv2.VideoCapture(int(source))',
+    '        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)',
+    '        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)',
+    '        if not cap.isOpened():',
+    '            print("[ERROR] cannot open USB camera", source)',
+    '            print("        try another number (--source 1), and close Zoom / Teams / other apps")',
+    '            sys.exit(1)',
+    '        return Source(cap=cap)',
+    '    is_url = "://" in source',
+    '    if not is_url and not os.path.isfile(source):',
+    '        print("[ERROR] file not found:", source)',
+    '        print("        put it next to this script, or give the full path")',
     '        sys.exit(1)',
-    '    return cap','');
+    '    if not is_url and source.lower().endswith(IMAGE_EXT):',
+    '        # imdecode reads non-ASCII (e.g. Thai) paths on Windows, cv2.imread does not',
+    '        frame = cv2.imdecode(np.fromfile(source, dtype=np.uint8), cv2.IMREAD_COLOR)',
+    '        if frame is None:',
+    '            print("[ERROR] cannot read image:", source)',
+    '            sys.exit(1)',
+    '        return Source(still=frame)',
+    '    cap = cv2.VideoCapture(source)',
+    '    if not cap.isOpened():',
+    '        print("[ERROR] cannot open video / stream:", source)',
+    '        sys.exit(1)',
+    '    return Source(cap=cap)',
+    '','');
   return o;
 }
 
-function srcStyle(G){
-  if(G.input!=='camera') return G.input==='video'?'cap':'image';
-  if(G.device==='pi') return G.picam==='csi' ? 'picam' : 'cap';
-  if(G.device==='kinect') return 'kinect';
-  return 'cap';
+function srcStyle(G){ return isKinectCam(G)?'kinect':'src'; }
+function stillLines(G,TUNE,ind){
+  // one picture: process once, show until a key
+  const o=[], p=s=>o.push(ind+s);
+  if(TUNE){
+    p('if args.tune:');
+    p('    # tune on a still image: keeps re-processing until q');
+    p('    while True:');
+    p('        result, info = process(frame)');
+    p('        cv2.imshow(WINDOW_NAME, result)');
+    p('        if cv2.waitKey(30) & 0xFF in (ord("q"), 27):');
+    p('            break');
+    p('    print_tuned()');
+    p('    print("[RESULT]", info)');
+    p('    cv2.destroyAllWindows()');
+    p('    return');
+  }
+  p('result, info = process(frame)');
+  p('print("[RESULT]", info)');
+  if(G.mqtt) p('mqtt_publish(client, info)');
+  if(G.save) p('save_result(result)');
+  p('if not args.no_window:');
+  p('    cv2.imshow(WINDOW_NAME, result)');
+  p('    print("[INFO] press any key on the picture to close")');
+  p('    cv2.waitKey(0)');
+  p('cv2.destroyAllWindows()');
+  return o;
+}
+function loopLines(G,TUNE,fpsColor){
+  const o=[], kin=isKinectCam(G);
+  o.push('    last_report = 0.0');
+  if(G.fps) o.push('    prev = time.time()');
+  o.push('    try:');
+  o.push('        while True:');
+  if(kin) o.push('            frame = get_video()');
+  else{
+    o.push('            frame = src.read()');
+    o.push('            if frame is None:');
+    o.push('                print("[INFO] no more frames, stopping")');
+    o.push('                break');
+  }
+  o.push('');
+  o.push('            result, info = process(frame)');
+  if(G.fps){
+    o.push('');
+    o.push('            now = time.time()');
+    o.push('            fps = 1.0 / max(now - prev, 1e-6)');
+    o.push('            prev = now');
+    o.push('            cv2.putText(result, f"FPS {fps:.1f}", (10, result.shape[0] - 14),');
+    o.push('                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, '+fpsColor+', 2, cv2.LINE_AA)');
+  }
+  o.push('');
+  o.push('            # report once per second, no need to send every frame');
+  o.push('            if time.time() - last_report >= 1.0:');
+  o.push('                last_report = time.time()');
+  o.push('                print("[RESULT]", info)');
+  if(G.mqtt) o.push('                mqtt_publish(client, info)');
+  if(G.save) o.push('                save_result(result)');
+  o.push('');
+  o.push('            if not args.no_window:');
+  o.push('                cv2.imshow(WINDOW_NAME, result)');
+  o.push('                if cv2.waitKey(1) & 0xFF in (ord("q"), 27):');
+  o.push('                    break');
+  o.push('    except KeyboardInterrupt:');
+  o.push('        print("\\n[INFO] interrupted by user")');
+  o.push('    finally:');
+  if(TUNE===true){ o.push('        if args.tune:'); o.push('            print_tuned()'); }
+  if(TUNE==='face'){ o.push('        if args.tune:'); o.push('            print_tuned()'); }
+  o.push(kin?'        pass  # the Kinect closes itself when the program exits':'        src.release()');
+  if(G.mqtt){ o.push('        if client is not None:'); o.push('            client.loop_stop()'); }
+  o.push('        cv2.destroyAllWindows()');
+  return o;
 }
 function mainBlock(G,opts){
   const o=[];
   const TUNE=opts&&opts.tune;
-  const style=srcStyle(G);
+  const kin=isKinectCam(G);
   o.push('def main():');
   o.push('    parser = argparse.ArgumentParser(description="TESR Image Processing Lab generated script")');
-  if(G.input==='image') o.push('    parser.add_argument("--source", required=True, help="'+L('พาธไฟล์ภาพ','path to the image file')+'")');
-  else if(G.input==='video') o.push('    parser.add_argument("--source", required=True, help="'+L('พาธไฟล์วิดีโอ','path to the video file')+'")');
-  else if(G.device==='pc'||(G.device==='pi'&&G.picam!=='csi')) o.push('    parser.add_argument("--camera", type=int, default=0, help="'+L('หมายเลขกล้อง','camera index')+'")');
-  o.push('    parser.add_argument("--no-window", action="store_true", help="'+L('รันแบบไม่เปิดหน้าต่าง (สำหรับ headless)','run without a display window (headless)')+'")');
-  if(TUNE) o.push('    parser.add_argument("--tune", action="store_true", help="'+L('เปิด slider เพื่อจูนค่าซ้ำบนเครื่องนี้','show sliders to re-tune on this machine')+'")');
+  if(!kin) o.push('    add_input_args(parser)');
+  o.push('    parser.add_argument("--no-window", action="store_true", help="run without a display window (headless)")');
+  if(TUNE) o.push('    parser.add_argument("--tune", action="store_true", help="show sliders to re-tune on this machine")');
   o.push('    args = parser.parse_args()');
   o.push('');
   if(TUNE){
     o.push('    if args.tune:');
     o.push('        if args.no_window:');
-    o.push('            print("[ERROR] --tune '+L('ต้องมีหน้าต่างแสดงผล','needs a display window')+'")');
+    o.push('            print("[ERROR] --tune needs a display window")');
     o.push('            sys.exit(1)');
     o.push('        globals()["TUNING"] = True');
     o.push('        setup_tuner()');
     o.push('');
   }
-  if(G.save){
-    o.push('    os.makedirs(OUTPUT_DIR, exist_ok=True)');
-    o.push('');
-  }
+  if(G.save){ o.push('    os.makedirs(OUTPUT_DIR, exist_ok=True)'); o.push(''); }
   if(G.mqtt){ o.push('    client = mqtt_connect()'); o.push(''); }
-
-  if(G.input==='image'){
-    o.push('    frame = load_image(args.source)');
-    if(TUNE){
-      o.push('    if args.tune:');
-      o.push('        # '+L('จูนกับภาพนิ่ง: ประมวลผลซ้ำจนกด q','tune on a still image: keeps re-processing until q'));
-      o.push('        while True:');
-      o.push('            result, info = process(frame)');
-      o.push('            cv2.imshow(WINDOW_NAME, result)');
-      o.push('            if cv2.waitKey(30) & 0xFF in (ord("q"), 27):');
-      o.push('                break');
-      o.push('        print_tuned()');
-      o.push('        print("[RESULT]", info)');
-      o.push('        cv2.destroyAllWindows()');
-      o.push('        return');
-      o.push('');
-    }
-    o.push('    result, info = process(frame)');
-    o.push('    print("[RESULT]", info)');
-    if(G.mqtt) o.push('    mqtt_publish(client, info)');
-    if(G.save) o.push('    save_result(result)');
-    o.push('    if not args.no_window:');
-    o.push('        cv2.imshow(WINDOW_NAME, result)');
-    o.push('        cv2.waitKey(0)');
-    o.push('    cv2.destroyAllWindows()');
-  } else {
-    if(style==='picam') o.push('    picam = open_camera()');
-    else if(style==='kinect') o.push('    # '+L('Kinect ไม่ต้องเปิด capture object เรียก get_video() ต่อเฟรมได้เลย','the Kinect needs no capture object, just call get_video() per frame'));
-    else if(G.input==='video') o.push('    cap = open_source(args.source)');
-    else if(G.device==='pc'||(G.device==='pi'&&G.picam!=='csi')) o.push('    cap = open_camera(args.camera)');
-    else o.push('    cap = open_camera()');
-    o.push('');
-    o.push('    last_report = 0.0');
-    if(G.fps) o.push('    prev = time.time()');
-    o.push('    try:');
-    o.push('        while True:');
-    if(style==='picam'){
-      o.push('            frame = picam.capture_array()');
-      o.push('            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)');
-    }else if(style==='kinect'){
-      o.push('            frame = get_video()');
-    }else{
-      o.push('            ok, frame = cap.read()');
-      o.push('            if not ok:');
-      o.push('                print("[INFO] '+L('อ่านภาพไม่ได้ จบการทำงาน','no more frames, stopping')+'")');
-      o.push('                break');
-    }
-    o.push('');
-    o.push('            result, info = process(frame)');
-    if(G.fps){
-      o.push('');
-      o.push('            now = time.time()');
-      o.push('            fps = 1.0 / max(now - prev, 1e-6)');
-      o.push('            prev = now');
-      o.push('            cv2.putText(result, f"FPS {fps:.1f}", (10, result.shape[0] - 14),');
-      o.push('                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (55, 175, 212), 2, cv2.LINE_AA)');
-    }
-    o.push('');
-    o.push('            # '+L('รายงานผลทุก 1 วินาที ไม่ต้องส่งทุกเฟรม','report once per second, no need to send every frame'));
-    o.push('            if time.time() - last_report >= 1.0:');
-    o.push('                last_report = time.time()');
-    o.push('                print("[RESULT]", info)');
-    if(G.mqtt) o.push('                mqtt_publish(client, info)');
-    if(G.save) o.push('                save_result(result)');
-    o.push('');
-    o.push('            if not args.no_window:');
-    o.push('                cv2.imshow(WINDOW_NAME, result)');
-    o.push('                key = cv2.waitKey(1) & 0xFF');
-    o.push('                if key in (ord("q"), 27):');
-    o.push('                    break');
-    o.push('    except KeyboardInterrupt:');
-    o.push('        print("\\n[INFO] '+L('ผู้ใช้กด Ctrl+C','interrupted by user')+'")');
-    o.push('    finally:');
-    if(TUNE){ o.push('        if args.tune:'); o.push('            print_tuned()'); }
-    if(style==='picam') o.push('        picam.stop()');
-    else if(style==='kinect') o.push('        pass  # '+L('Kinect ปิดตัวเองเมื่อโปรแกรมจบ','the Kinect closes itself when the program exits'));
-    else o.push('        cap.release()');
-    if(G.mqtt){ o.push('        if client is not None:'); o.push('            client.loop_stop()'); }
-    o.push('        cv2.destroyAllWindows()');
+  if(kin){
+    o.push('    # the Kinect needs no capture object, just call get_video() per frame');
+  }else{
+    o.push('    src = open_input(args.camera, args.source)');
+    o.push('    if src.still is not None:      # one picture');
+    o.push('        frame = src.read()');
+    o.push(...stillLines(G,TUNE,'        '));
+    o.push('        return');
   }
+  o.push('');
+  o.push(...loopLines(G,TUNE?true:false,'(55, 175, 212)'));
   o.push('');
   o.push('');
   o.push('if __name__ == "__main__":');
@@ -5645,7 +5715,7 @@ function pyShape(sh){
 
 function requirementsText(){
   const P=params();
-  // <5: OpenCV 5 dropped cv2.CascadeClassifier, which the face and Haar tabs need
+  // <5: OpenCV 5.0 no longer ships the Haar XML files the face and Haar tabs load
   let r=(TAB==='face'?'opencv-contrib-python>=4.8,<5':'opencv-python>=4.8,<5')+'\nnumpy>=1.24\n';
   if(P.gen.mqtt) r+='paho-mqtt>=1.6\n';
   return r;
@@ -5738,44 +5808,38 @@ function codeFace(P){
   o.push('');
   o.push('');
   o.push('# ---------- 1) '+L('เก็บชุดข้อมูล','Enrol')+' ----------');
-  o.push('def enroll(name, samples):');
-  o.push('    '+Q+L('เก็บภาพใบหน้าของคนคนหนึ่งลงโฟลเดอร์ dataset/<name>/','Capture face crops for one person into dataset/<name>/')+Q);
+  o.push(style==='kinect'?'def enroll(name, samples):':'def enroll(name, samples, src):');
+  o.push('    '+Q+'Capture face crops for one person into dataset/<name>/'+Q);
   o.push('    folder = os.path.join(DATASET_DIR, name)');
   o.push('    os.makedirs(folder, exist_ok=True)');
-  if(style==='picam') o.push('    picam = open_camera()');
-  else if(style!=='kinect') o.push('    cap = open_camera()');
   o.push('    saved = 0');
-  o.push('    print("[ENROLL] '+L('มองกล้อง หันหน้าเล็กน้อยไปมา และเปลี่ยนสีหน้าบ้าง','look at the camera, turn slightly and change expression')+'")');
+  o.push('    print("[ENROLL] look at the camera, turn slightly and change expression")');
   o.push('    try:');
   o.push('        while saved < samples:');
-  if(style==='picam'){
-    o.push('            frame = cv2.cvtColor(picam.capture_array(), cv2.COLOR_RGB2BGR)');
-  }else if(style==='kinect'){
-    o.push('            frame = get_video()');
-  }else{
-    o.push('            ok, frame = cap.read()');
-    o.push('            if not ok:');
+  if(style==='kinect') o.push('            frame = get_video()');
+  else{
+    o.push('            frame = src.read()');
+    o.push('            if frame is None:');
     o.push('                break');
   }
   o.push('            gray = cv2.equalizeHist(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY))');
   o.push('            for box in detect_faces(gray):');
   o.push('                saved += 1');
-  o.push('                path = os.path.join(folder, f"{saved:04d}.jpg")');
-  o.push('                cv2.imwrite(path, prepare_face(gray, box))');
+  o.push('                path = os.path.join(folder, f"{saved:04d}.png")');
+  o.push('                cv2.imencode(".png", prepare_face(gray, box))[1].tofile(path)');
   o.push('                x, y, w, h = box');
   o.push('                cv2.rectangle(frame, (x, y), (x + w, y + h), GOLD, 2)');
-  o.push('                break   # '+L('เก็บทีละใบหน้าเท่านั้น','one face per frame only'));
+  o.push('                break   # one face per frame only');
   o.push('            cv2.putText(frame, f"{name}: {saved}/{samples}", (12, 32),');
   o.push('                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, GOLD, 2, cv2.LINE_AA)');
   o.push('            cv2.imshow(WINDOW_NAME, frame)');
   o.push('            if cv2.waitKey(1) & 0xFF in (ord("q"), 27):');
   o.push('                break');
   o.push('    finally:');
-  if(style==='picam') o.push('        picam.stop()');
-  else if(style==='kinect') o.push('        pass');
-  else o.push('        cap.release()');
+  o.push(style==='kinect'?'        pass':'        src.release()');
   o.push('        cv2.destroyAllWindows()');
-  o.push('    print(f"[ENROLL] saved {saved} '+L('ภาพลงใน','images into')+' {folder}")');
+  o.push('    print(f"[ENROLL] saved {saved} images into {folder}")');
+  o.push('    print("[ENROLL] now run:  python '+fileNameFor()+' --mode train")');
   o.push('');
   o.push('');
   o.push('# ---------- 2) '+L('เทรนโมเดล','Train')+' ----------');
@@ -5879,27 +5943,38 @@ function codeFace(P){
   o.push('    return result, info');
   o.push('');
   o.push('');
-  o.push(...captureBlock(Object.assign({},G,{input:'camera'})));
-  if(G.input!=='camera') o.push(...captureBlock(G));
+  o.push(...captureBlock(G));
+  o.push('def require_face_module():');
+  o.push('    '+Q+'cv2.face lives only in opencv-contrib-python - say so instead of a traceback'+Q);
+  o.push('    if hasattr(cv2, "face"):');
+  o.push('        return');
+  o.push('    print("[ERROR] this Python has OpenCV without cv2.face (it needs opencv-contrib-python)")');
+  o.push('    print("        Python in use:", sys.executable)');
+  o.push('    print("        You are probably outside the venv. Open it first, then run again:")');
+  o.push('    print("          Windows          : venv\\\\Scripts\\\\activate")');
+  o.push('    print("          Mac / Linux / Pi : source venv/bin/activate")');
+  o.push('    print("        No venv folder yet? Run the installer: install_windows.bat / install_linux.sh")');
+  o.push('    sys.exit(1)');
+  o.push('');
+  o.push('');
   o.push('def main():');
   o.push('    global RECOGNIZER, NAMES');
   o.push('    parser = argparse.ArgumentParser(description="TESR Image Processing Lab face recognition (LBPH)")');
   o.push('    parser.add_argument("--mode", choices=["enroll", "train", "recognize"],');
   o.push('                        default="recognize")');
-  o.push('    parser.add_argument("--name", help="'+L('ชื่อคนที่จะลงทะเบียน ใช้กับ --mode enroll','person to enrol, used with --mode enroll')+'")');
+  o.push('    parser.add_argument("--name", help="person to enrol, used with --mode enroll")');
   o.push('    parser.add_argument("--samples", type=int, default=30)');
-  if(G.input==='image') o.push('    parser.add_argument("--source", help="'+L('ไฟล์ภาพสำหรับโหมด recognize','image file for recognize mode')+'")');
-  if(G.input==='video') o.push('    parser.add_argument("--source", help="'+L('ไฟล์วิดีโอสำหรับโหมด recognize','video file for recognize mode')+'")');
-  if(G.device==='pc'||(G.device==='pi'&&G.picam!=='csi')) o.push('    parser.add_argument("--camera", type=int, default=0)');
+  if(style!=='kinect') o.push('    add_input_args(parser)');
   o.push('    parser.add_argument("--no-window", action="store_true")');
-  o.push('    parser.add_argument("--tune", action="store_true", help="'+L('เปิด slider จูน (เฉพาะโหมด recognize)','show tuning sliders (recognize mode only)')+'")');
+  o.push('    parser.add_argument("--tune", action="store_true", help="show tuning sliders (recognize mode only)")');
   o.push('    args = parser.parse_args()');
+  o.push('    require_face_module()');
   o.push('');
   o.push('    if args.tune:');
   o.push('        if args.mode != "recognize":');
-  o.push('            print("[INFO] --tune '+L('ใช้ได้เฉพาะโหมด recognize จะข้ามการจูน','only applies to recognize mode, ignoring')+'")');
+  o.push('            print("[INFO] --tune only applies to recognize mode, ignoring")');
   o.push('        elif args.no_window:');
-  o.push('            print("[ERROR] --tune '+L('ต้องมีหน้าต่างแสดงผล','needs a display window')+'")');
+  o.push('            print("[ERROR] --tune needs a display window")');
   o.push('            sys.exit(1)');
   o.push('        else:');
   o.push('            globals()["TUNING"] = True');
@@ -5907,9 +5982,9 @@ function codeFace(P){
   o.push('');
   o.push('    if args.mode == "enroll":');
   o.push('        if not args.name:');
-  o.push('            print("[ERROR] '+L('ต้องระบุ --name','--name is required')+'")');
+  o.push('            print("[ERROR] --name is required")');
   o.push('            sys.exit(1)');
-  o.push('        enroll(args.name, args.samples)');
+  o.push(style==='kinect'?'        enroll(args.name, args.samples)':'        enroll(args.name, args.samples, open_input(args.camera, args.source))');
   o.push('        return');
   o.push('');
   o.push('    if args.mode == "train":');
@@ -5917,72 +5992,21 @@ function codeFace(P){
   o.push('        return');
   o.push('');
   o.push('    if not os.path.exists(MODEL_FILE) and os.path.isdir(DATASET_DIR):');
-  o.push('        print("[INFO] '+L('ยังไม่มีโมเดล - เทรนจาก dataset/ ให้ก่อน','no model yet - training from dataset/ first')+'")');
+  o.push('        print("[INFO] no model yet - training from dataset/ first")');
   o.push('        train()');
   o.push('    RECOGNIZER, NAMES = load_model()');
   if(G.save) o.push('    os.makedirs(OUTPUT_DIR, exist_ok=True)');
   if(G.mqtt) o.push('    client = mqtt_connect()');
   o.push('');
-  if(G.input==='image'){
-    o.push('    if not args.source:');
-    o.push('        print("[ERROR] '+L('โหมด recognize กับไฟล์ภาพต้องใส่ --source','recognize mode with an image needs --source')+'")');
-    o.push('        sys.exit(1)');
-    o.push('    frame = load_image(args.source)');
-    o.push('    result, info = process(frame)');
-    o.push('    print("[RESULT]", info)');
-    if(G.mqtt) o.push('    mqtt_publish(client, info)');
-    if(G.save) o.push('    save_result(result)');
-    o.push('    if not args.no_window:');
-    o.push('        cv2.imshow(WINDOW_NAME, result)');
-    o.push('        cv2.waitKey(0)');
-    o.push('    cv2.destroyAllWindows()');
-  }else{
-    if(style==='picam') o.push('    picam = open_camera()');
-    else if(style==='kinect') o.push('    # '+L('Kinect เรียก get_video() ต่อเฟรมได้เลย','the Kinect just needs get_video() per frame'));
-    else if(G.input==='video') o.push('    cap = open_source(args.source)');
-    else if(G.device==='pc'||(G.device==='pi'&&G.picam!=='csi')) o.push('    cap = open_camera(args.camera)');
-    else o.push('    cap = open_camera()');
-    o.push('    last_report = 0.0');
-    if(G.fps) o.push('    prev = time.time()');
-    o.push('    try:');
-    o.push('        while True:');
-    if(style==='picam'){
-      o.push('            frame = cv2.cvtColor(picam.capture_array(), cv2.COLOR_RGB2BGR)');
-    }else if(style==='kinect'){
-      o.push('            frame = get_video()');
-    }else{
-      o.push('            ok, frame = cap.read()');
-      o.push('            if not ok:');
-      o.push('                break');
-    }
-    o.push('            result, info = process(frame)');
-    if(G.fps){
-      o.push('            now = time.time()');
-      o.push('            fps = 1.0 / max(now - prev, 1e-6)');
-      o.push('            prev = now');
-      o.push('            cv2.putText(result, f"FPS {fps:.1f}", (10, result.shape[0] - 14),');
-      o.push('                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, GOLD, 2, cv2.LINE_AA)');
-    }
-    o.push('            if time.time() - last_report >= 1.0:');
-    o.push('                last_report = time.time()');
-    o.push('                print("[RESULT]", info)');
-    if(G.mqtt) o.push('                mqtt_publish(client, info)');
-    if(G.save) o.push('                save_result(result)');
-    o.push('            if not args.no_window:');
-    o.push('                cv2.imshow(WINDOW_NAME, result)');
-    o.push('                if cv2.waitKey(1) & 0xFF in (ord("q"), 27):');
-    o.push('                    break');
-    o.push('    except KeyboardInterrupt:');
-    o.push('        print("\\n[INFO] '+L('ผู้ใช้กด Ctrl+C','interrupted by user')+'")');
-    o.push('    finally:');
-  o.push('        if args.tune:');
-  o.push('            print_tuned()');
-    if(style==='picam') o.push('        picam.stop()');
-    else if(style==='kinect') o.push('        pass');
-    else o.push('        cap.release()');
-    if(G.mqtt){ o.push('        if client is not None:'); o.push('            client.loop_stop()'); }
-    o.push('        cv2.destroyAllWindows()');
+  if(style!=='kinect'){
+    o.push('    src = open_input(args.camera, args.source)');
+    o.push('    if src.still is not None:      # one picture');
+    o.push('        frame = src.read()');
+    o.push(...stillLines(G,false,'        '));
+    o.push('        return');
+    o.push('');
   }
+  o.push(...loopLines(G,'face','GOLD'));
   o.push('');
   o.push('');
   o.push('if __name__ == "__main__":');
@@ -6998,8 +7022,9 @@ $('dlReq').onclick=()=>download('requirements.txt',requirementsText());
    One download that runs as soon as it is unpacked: the script, a pinned
    requirements.txt, every Haar cascade the script names, the image it was
    tuned on (image mode), the enrolled faces as dataset/<name>/ (face tab),
-   a README and a run script for Windows and for Mac/Linux/Pi that makes the
-   venv, installs and starts it. Nothing to go looking for. */
+   a README, and installers for Windows, Linux/Mac, Raspberry Pi and Jetson
+   that make venv/ and install - then print how to open the venv and run with
+   --camera / --source. They never start the script by themselves. */
 const CRC_TABLE=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
 function crc32(b){let c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=CRC_TABLE[(c^b[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
 function makeZip(files){
@@ -7083,53 +7108,150 @@ $('dlZip').onclick=async()=>{
       }
     }
   }
-  const venvFlag=G.device==='pi'?' --system-site-packages':'';
-  const cmd='python '+py+runArgs;
-  files.push({name:'run_windows.bat',data:[
-    '@echo off','cd /d "%~dp0"',
-    'if not exist .venv\\Scripts\\python.exe (',
-    '  echo [SETUP] creating .venv and installing requirements - first run only',
-    '  py -3 -m venv .venv 2>nul || python -m venv .venv',
-    '  .venv\\Scripts\\python -m pip install --upgrade pip',
-    '  .venv\\Scripts\\python -m pip install -r requirements.txt',
-    ')',
-    '.venv\\Scripts\\'+cmd+' %*','pause',''].join('\r\n')});
-  files.push({name:'run_mac_linux.sh',exec:true,data:[
-    '#!/usr/bin/env bash','set -e','cd "$(dirname "$0")"',
-    'if [ ! -x .venv/bin/python ]; then',
-    '  echo "[SETUP] creating .venv and installing requirements - first run only"',
-    '  python3 -m venv'+venvFlag+' .venv',
-    '  .venv/bin/python -m pip install --upgrade pip',
-    '  .venv/bin/python -m pip install -r requirements.txt',
+  // installers: set up venv/ only. Nothing runs until the learner chooses.
+  const face=TAB==='face', hasPng=runArgs.includes('input.png'), kin=isKinectCam(G);
+  const probe=face?'import cv2, numpy; cv2.face.LBPHFaceRecognizer_create':'import cv2, numpy';
+  const okLine=probe+"; print('OpenCV OK -', cv2.__version__)";
+  const runList=(csi)=>{
+    const r=[];
+    if(face){
+      r.push(['python '+py+' --camera usb --source 0','recognise with USB webcam 0 (trains dataset/ first)']);
+      r.push(['python '+py+' --camera usb --source 1','another USB camera']);
+      r.push(['python '+py+' --mode enroll --name YOUR_NAME','add a person, then --mode train']);
+      r.push(['python '+py+' --source photo.jpg','recognise faces in one picture']);
+      r.push(['python '+py+' --source clip.mp4','recognise faces in a video file']);
+    }else if(kin){
+      r.push(['python '+py,'Kinect']);
+    }else{
+      r.push(['python '+py+' --camera usb --source 0','USB webcam 0 (another camera: --source 1)']);
+      if(hasPng) r.push(['python '+py+' --source input.png','the picture you tuned on']);
+      r.push(['python '+py+' --source photo.jpg','any picture']);
+      r.push(['python '+py+' --source clip.mp4','a video file']);
+    }
+    if(csi&&!kin) r.push(['python '+py+' --camera csi --source 0','ribbon camera on Pi / Jetson (CSI)']);
+    if(CODE.includes('"--tune"')) r.push(['python '+py+(hasPng?' --source input.png':'')+' --tune','sliders to re-tune on this machine']);
+    return r;
+  };
+  const pad=(c,n)=>c+' '.repeat(Math.max(1,n-c.length));
+  const helpLines=(activate,csi)=>{
+    const rl=runList(csi), w=Math.max(...rl.map(x=>x[0].length))+3;
+    return ['============================================================',
+      ' Installed. Nothing is running yet - you choose when.','',
+      ' 1) Open the venv (do this in every new terminal):',
+      '      '+activate,
+      ' 2) Run it - pick the input:',
+      ...rl.map(x=>'      '+pad(x[0],w)+x[1]),
+      '',' Quit: press q or ESC on the picture window.',
+      '============================================================'];
+  };
+  const banner='==== TESR Image Processing Lab v'+APP_VERSION+' - '+py+' ====';
+  const bat=['@echo off','REM '+banner,'REM One-click installer for Windows: makes venv\\ and installs requirements.txt.','setlocal','cd /d "%~dp0"',
+    'set "PY=python"','py -3 -c "print()" >nul 2>nul && set "PY=py -3"','echo Using: %PY%',
+    'if not exist venv\\Scripts\\python.exe %PY% -m venv venv',
+    'if not exist venv\\Scripts\\python.exe goto err',
+    'venv\\Scripts\\python -m pip install --upgrade pip',
+    ...(face?['REM opencv-python and opencv-contrib-python cannot live side by side','venv\\Scripts\\python -m pip uninstall -y opencv-python opencv-python-headless >nul 2>nul']:[]),
+    'venv\\Scripts\\python -m pip install -r requirements.txt || goto err',
+    'venv\\Scripts\\python -c "'+okLine+'" || goto err',
+    'echo.',
+    ...helpLines('venv\\Scripts\\activate',false).map(l=>l?'echo '+l:'echo.'),
+    'pause','exit /b 0',':err','echo.',
+    'echo Install failed. You need Python 3.9 or newer from python.org',
+    'echo - tick "Add python.exe to PATH" when you install it - then run this again.',
+    'echo To start over, delete the venv folder.',
+    'pause','exit /b 1',''].join('\r\n');
+  files.push({name:'install_windows.bat',data:bat});
+  const shHelp=(csi)=>['cat <<\'TXT\'','',...helpLines('source venv/bin/activate',csi),'TXT'];
+  files.push({name:'install_linux.sh',exec:true,data:['#!/usr/bin/env bash','# '+banner,
+    '# Installer for a Linux / macOS PC: makes venv/ and installs requirements.txt.',
+    '# Raspberry Pi -> install_pi.sh    Jetson -> install_jetson.sh',
+    'set -e','cd "$(dirname "$0")"',
+    '[ -x venv/bin/python ] || python3 -m venv venv || { echo "No venv module - Ubuntu/Debian: sudo apt install python3-venv"; exit 1; }',
+    'venv/bin/python -m pip install --upgrade pip',
+    ...(face?['venv/bin/python -m pip uninstall -y opencv-python opencv-python-headless >/dev/null 2>&1 || true']:[]),
+    'venv/bin/python -m pip install -r requirements.txt',
+    'venv/bin/python -c "'+okLine+'"',...shHelp(false),''].join('\n')});
+  const sysRoute=(extra)=>['  grep -viE \'^(opencv|numpy|#|$)\' requirements.txt > .requirements_extra.txt || true',
+    '  if [ -s .requirements_extra.txt ]; then venv/bin/python -m pip install -r .requirements_extra.txt; fi',
+    '  rm -f .requirements_extra.txt',...(extra||[])];
+  files.push({name:'install_pi.sh',exec:true,data:['#!/usr/bin/env bash','# '+banner,
+    '# Installer for Raspberry Pi 5 (Raspberry Pi OS 64-bit): makes venv/.',
+    '# If the OpenCV that apt installs has what this script needs, the venv uses it',
+    '# (--system-site-packages) and Picamera2 stays available for --camera csi.',
+    '# If not, a plain venv with OpenCV from pip - then use a USB webcam.',
+    'set -e','cd "$(dirname "$0")"',
+    'sudo apt update','sudo apt install -y python3-venv python3-numpy',
+    'python3 -c "import cv2" 2>/dev/null || sudo apt install -y python3-opencv',
+    'if python3 -c "'+probe+'" 2>/dev/null; then',
+    '  echo "System OpenCV has what this script needs - using it, and keeping Picamera2."',
+    '  sudo apt install -y python3-picamera2 || true',
+    '  [ -x venv/bin/python ] || python3 -m venv --system-site-packages venv',
+    ...sysRoute(),
+    'else',
+    '  echo "System OpenCV lacks what this script needs - pip OpenCV in a plain venv."',
+    '  echo "Picamera2 is NOT visible on this route: use a USB webcam (--camera usb)."',
+    '  [ -x venv/bin/python ] || python3 -m venv venv',
+    '  venv/bin/python -m pip install --upgrade pip',
+    '  venv/bin/python -m pip install -r requirements.txt',
     'fi',
-    'exec .venv/bin/'+cmd.replace(/^python /,'python ')+' "$@"',''].join('\n')});
+    'venv/bin/python -c "'+okLine+'"',...shHelp(true),''].join('\n')});
+  files.push({name:'install_jetson.sh',exec:true,data:['#!/usr/bin/env bash','# '+banner,
+    '# Installer for NVIDIA Jetson (JetPack): makes venv/.',
+    '# JetPack ships its own OpenCV (with GStreamer for the CSI camera). If it has what',
+    '# this script needs, the venv uses it (--system-site-packages) - never pip-install',
+    '# OpenCV over it. If not, a plain venv with OpenCV from pip - then use a USB webcam.',
+    'set -e','cd "$(dirname "$0")"',
+    'sudo apt update','sudo apt install -y python3-venv python3-pip',
+    'if python3 -c "'+probe+'" 2>/dev/null; then',
+    '  echo "JetPack OpenCV has what this script needs - using it."',
+    '  [ -x venv/bin/python ] || python3 -m venv --system-site-packages venv',
+    ...sysRoute(),
+    'else',
+    '  echo "JetPack OpenCV lacks what this script needs - pip OpenCV in a plain venv."',
+    '  echo "The CSI camera needs JetPack OpenCV (GStreamer): use a USB webcam on this route."',
+    '  [ -x venv/bin/python ] || python3 -m venv venv',
+    '  venv/bin/python -m pip install --upgrade pip',
+    '  venv/bin/python -m pip install -r requirements.txt',
+    'fi',
+    'venv/bin/python -c "'+okLine+'"',...shHelp(true),''].join('\n')});
+  const rl=runList(true), rw=Math.max(...rl.map(x=>x[0].length))+3;
   const readme=[
     'TESR Image Processing Lab v'+APP_VERSION+' - '+TAB_LABELS[TAB][1].replace(/^\S+\s/,''),
     'Made by TESR - Thai Embedded System and Robotics - TESR Academy',
     '',
-    'RUN IT (the first run makes a .venv and installs, later runs start at once)',
-    '  Windows ............. double-click run_windows.bat',
-    '  Mac / Linux / Pi .... bash run_mac_linux.sh',
-    '  by hand ............. pip install -r requirements.txt  then  '+cmd,
+    '1) INSTALL (once) - makes the venv folder and installs everything into it',
+    '     Windows ........ double-click install_windows.bat',
+    '     Mac / Linux .... bash install_linux.sh',
+    '     Raspberry Pi ... bash install_pi.sh',
+    '     Jetson ......... bash install_jetson.sh',
+    '   Nothing runs by itself. The installer ends by printing the commands below.',
+    '',
+    '2) OPEN THE VENV (every new terminal, in this folder)',
+    '     Windows ........ venv\\Scripts\\activate',
+    '     others ......... source venv/bin/activate',
+    '   You see (venv) at the start of the line = ready.',
+    '',
+    '3) RUN - choose the input with --camera / --source',
+    ...rl.map(x=>'     '+pad(x[0],rw)+x[1]),
+    '   Quit: press q or ESC on the picture window.  Help: python '+py+' --help',
     '',
     'WHAT IS IN HERE',
     '  '+py+'  the script, with the values you tuned on the page',
-    '  requirements.txt  pinned below OpenCV 5 (5 removed cv2.CascadeClassifier)',
+    '  requirements.txt  pinned below OpenCV 5 (5.0 no longer ships the Haar XML files)',
+    '  install_*.bat / install_*.sh  the installers above',
     ...xmls.filter(x=>!missing.includes(x)).map(x=>'  '+x+'  Haar cascade, found next to the script'),
-    ...(runArgs.includes('input.png')?['  input.png  the image the values were tuned on']:[]),
-    ...(TAB==='face'?[
-      '  dataset/<name>/0001.png ...  the '+faces+' face(s) you enrolled on the page',
+    ...(hasPng?['  input.png  the image the values were tuned on']:[]),
+    ...(face?[
+      '  dataset/NAME/0001.png ...  the '+faces+' face(s) you enrolled on the page',
       '',
       'FACE RECOGNITION',
       '  The first run trains lbph_model.yml + labels.json from dataset/, then recognises.',
-      '  Add a person   : python '+py+' --mode enroll --name NAME  then  --mode train',
+      '  Add a person   : python '+py+' --mode enroll --name NAME   then  --mode train',
       '  Remove a person: delete dataset/NAME, then  python '+py+' --mode train',
-      '  Tune on the device: python '+py+' --tune',
+      '  "cv2 has no attribute face" = you are outside the venv: open it (step 2).',
       '  The browser distance and LBPH confidence are different scales - tune CONFIDENCE_MAX here.',
       '  Faces are biometric data under Thai PDPA: only with consent, and delete when done.'
     ]:[]),
-    ...(G.input==='video'?['','Put your video next to the script and change your_video.mp4 in the run script.']:[]),
-    ...(G.device==='jetson'?['','Jetson: OpenCV comes with JetPack - do not pip-install opencv over it outside the .venv.']:[]),
     ...(missing.length?['','NOT INCLUDED (could not be fetched): '+missing.join(', ')+' - pip opencv ships them in cv2.data']:[]),
     ''].join('\n');
   files.push({name:'README.txt',data:readme});
