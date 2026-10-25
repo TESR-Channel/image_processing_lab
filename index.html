@@ -940,7 +940,7 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
             <label class="lbl" data-i18n="z.what">สิ่งที่ต้องการอ่าน</label>
             <label class="check"><input type="checkbox" id="z_aruco" checked /><span data-i18n="z.tAruco">ArUco marker — บอกตำแหน่งและมุม</span></label>
             <label class="check"><input type="checkbox" id="z_qr" checked /><span data-i18n="z.tQr">QR code — เก็บข้อความได้ยาว</span></label>
-            <label class="check"><input type="checkbox" id="z_bar" /><span data-i18n="z.tBar">บาร์โค้ด EAN / UPC — รหัสสินค้า</span></label>
+            <label class="check"><input type="checkbox" id="z_bar" checked /><span data-i18n="z.tBar">บาร์โค้ด EAN / UPC — รหัสสินค้า</span></label>
           </div>
           <div class="field">
             <div class="slider-head"><label class="lbl" style="margin:0" data-i18n="z.mm">ขนาดจริงของมาร์กเกอร์ (มม.)</label><b id="z_mmV">50</b></div>
@@ -949,7 +949,7 @@ td.empty{color:#6a6a74;font-style:italic;padding:10px 6px !important;border:none
           </div>
           <details class="adv"><summary data-i18n="adv">ตัวเลือกขั้นสูง</summary>
           <label class="check"><input type="checkbox" id="z_soft" checked /><span data-i18n="z.soft">เบลอเล็กน้อยก่อนอ่านบาร์โค้ด</span></label>
-          <div class="hint" data-i18n="z.softHint">ตัวอ่านบาร์โค้ดของ OpenCV ดูการไล่ระดับของขอบ ภาพที่คมเป๊ะแบบไฟล์ที่เพิ่งสร้างจึงมักอ่านไม่ออก แต่ภาพจากกล้องจริงอ่านได้ ตัวเลือกนี้เบลอ 5x5 ก่อนอ่านเพื่อให้ทดสอบบนจอได้</div>
+          <div class="hint" data-i18n="z.softHint">ตัวอ่านบาร์โค้ดของ OpenCV ดูการไล่ระดับของขอบ ภาพที่คมเป๊ะแบบไฟล์ที่เพิ่งสร้างจึงมักอ่านไม่ออก แต่ภาพจากกล้องจริงอ่านได้ เปิดข้อนี้แล้วระบบจะลองอ่านภาพเดิมก่อน แล้วลองเบลอ 3x3, 5x5 และ 7x7 เก็บทุกโค้ดที่อ่านได้</div>
           <label class="check"><input type="checkbox" id="z_corner" /><span data-i18n="z.corner">วาดมุมทั้งสี่ของ ArUco</span></label>
           <label class="check"><input type="checkbox" id="z_zbar" /><span data-i18n="z.zbar">ให้โค้ด Python ใช้ pyzbar อ่านบาร์โค้ด</span></label>
           <div class="hint" data-i18n="z.zbarHint">OpenCV อ่านบาร์โค้ดได้แค่ตระกูล EAN/UPC · เปิดข้อนี้แล้วโค้ดที่ export จะใช้ pyzbar ซึ่งอ่าน Code 128, Code 39 และ ITF ได้ด้วย (ต้องลง <code>pip install pyzbar</code> และบน Pi/Ubuntu ต้อง <code>sudo apt install libzbar0</code>) · ตัวเลือกนี้มีผลกับโค้ด Python เท่านั้น ไม่เปลี่ยนการอ่านในเบราว์เซอร์</div>
@@ -1286,7 +1286,7 @@ const I18N = {
     'z.mm':'Real marker size (mm)',
     'z.mmHint':'Measured outer corner to outer corner of the black square. Fill it in and the page works out mm per pixel, so you can measure real objects in the frame. 0 = skip it.',
     'z.soft':'Soften edges before reading barcodes',
-    'z.softHint':'OpenCV\'s barcode reader works on edge gradients, so a pixel-perfect file — like one you just generated — often will not decode, while a photo of the same code will. This blurs 5x5 first so you can test on screen.',
+    'z.softHint':'OpenCV\'s barcode reader works on edge gradients, so a pixel-perfect file — like one you just generated — often will not decode, while a photo of the same code will. With this on, the page tries the plain image and then 3x3, 5x5 and 7x7 blurs, and keeps every code any of them read.',
     'z.corner':'Mark the four ArUco corners',
     'z.label':'Draw what was read onto the image',
     'z.readHint':'Try "Make a code to print", then press send-to-image: that walks the whole loop — make it, read it, export the Python.',
@@ -1449,7 +1449,7 @@ const imgEl = new Image();
 /* Shown in the header, written into every generated script and every
    ready-to-run zip, so a script on a Pi can be traced back to the page that
    made it. Small fix -> third number; something new to use -> second. */
-const APP_VERSION='1.2.0';
+const APP_VERSION='1.2.1';
 document.getElementById('appVer').textContent='v'+APP_VERSION;
 let imgLoaded=false, currentName='ex2.jpg';
 const SAMPLES=[
@@ -4383,34 +4383,39 @@ function runCodes(src,Z){
     try{
       bd=new cv.barcode_BarcodeDetector();
       inf=new cv.StringVector(); typ=new cv.StringVector(); pts=new cv.Mat();
-      // Measured, not guessed: on a crisp render this detector finds the bars
-      // with a 3x3 blur but still fails to DECODE them. 5x5 decodes; 7x7 is the
-      // fallback for thicker bars. A photographed code usually needs neither.
-      const attempts = Z.soft ? [5,7] : [0];
-      let decoded=false;
-      for(let a=0; a<attempts.length && !decoded; a++){
+      // Measured, not guessed. A pixel-perfect render out of this page needs a
+      // 5x5 blur before the detector DECODES it (3x3 finds the bars but fails),
+      // and 7x7 rescues thicker bars. A small or thin-barred code goes the other
+      // way: blur 5x5 merges its bars and only the plain image or 3x3 reads it
+      // (the EAN-13 in samples/codes.jpg is one). So with "soften" on we try the
+      // plain image first, then 3, 5 and 7, and keep every code any of them read.
+      const attempts = Z.soft ? [0,3,5,7] : [0];
+      const hits=[], seen=new Set();      // [value, type, 8 floats or null]
+      for(let a=0; a<attempts.length; a++){
         const k=attempts[a];
         let input=gray;
         if(k){ if(soft) soft.delete(); soft=new cv.Mat();
                cv.GaussianBlur(gray,soft,new cv.Size(k,k),0,0,cv.BORDER_DEFAULT); input=soft; }
         inf.delete(); typ.delete(); pts.delete();
         inf=new cv.StringVector(); typ=new cv.StringVector(); pts=new cv.Mat();
-        bd.detectAndDecodeWithType(input,inf,typ,pts);
-        for(let i=0;i<inf.size();i++) if(inf.get(i)) decoded=true;
+        try{ bd.detectAndDecodeWithType(input,inf,typ,pts); }catch(e){ continue; }
+        for(let i=0;i<inf.size();i++){
+          const v=inf.get(i);
+          if(!v || seen.has(v)) continue;
+          seen.add(v);
+          hits.push([v, typ.get(i), pts.rows*pts.cols>=4*(i+1) ? Array.from(pts.data32F.subarray(i*8,i*8+8)) : null]);
+        }
       }
-      for(let i=0;i<inf.size();i++){
-        const v=inf.get(i), t=typ.get(i);
-        if(!v) continue;
-        if(pts.rows*pts.cols>=4*(i+1)){
-          const p=pts.data32F.subarray(i*8,i*8+8);
+      hits.forEach(([v,t,p])=>{
+        if(p){
           quad(p,new cv.Scalar(120,200,140,255));
           put(t,p[0],p[1],new cv.Scalar(120,200,140,255));
           n++; rows.push([n,t,v,Math.round((p[0]+p[4])/2),Math.round((p[1]+p[5])/2),'']);
         }else{
           n++; rows.push([n,t,v,'','','']);
         }
-      }
-      found.push('Barcode '+inf.size());
+      });
+      found.push('Barcode '+hits.length);
     }catch(e){ found.push('Barcode n/a'); }
     finally{ [bd,inf,typ,pts,soft].forEach(o=>{ try{ o&&o.delete&&o.delete(); }catch(e){} }); }
   }
@@ -6766,7 +6771,7 @@ function codeCodes(P){
     o.push('ARUCO_DICT = cv2.aruco.'+(DICT_NAME[Z.dict]||'DICT_4X4_50')+'   # '+L('ต้องตรงกับที่พิมพ์','must match what was printed'));
     o.push('MARKER_MM = '+(Z.mm>0?Z.mm:0)+'   # '+L('ขนาดจริงของมาร์กเกอร์ ขอบนอกถึงขอบนอก · 0 = ไม่คำนวณ มม.','real marker size, outer corner to outer corner; 0 = skip the mm maths'));
   }
-  if(Z.bar) o.push('SOFTEN_BARCODE = '+(Z.soft?'True':'False')+'   # '+L('เบลอ 5x5 ก่อนอ่าน ช่วยกับไฟล์ภาพที่คมเกินไป','5x5 blur before reading, which rescues over-sharp image files'));
+  if(Z.bar) o.push('SOFTEN_BARCODE = '+(Z.soft?'True':'False')+'   # '+L('ลองภาพเดิม แล้วเบลอ 3/5/7 ช่วยกับไฟล์ภาพที่คมเกินไป','try the plain image, then 3/5/7 blurs - rescues over-sharp image files'));
   o.push('SHOW_LABELS = '+(Z.label?'True':'False'));
   o.push('');
   o.push('GOLD = (55, 175, 212)       # BGR');
@@ -6869,21 +6874,21 @@ function codeCodes(P){
     o.push('');
   }else if(Z.bar){
     o.push('    if READ_BARCODE:');
-    o.push('        # '+L('วัดมาแล้ว: ภาพที่คมมาก เบลอ 3x3 จะ "เจอ" แท่งแต่ถอดรหัสไม่ได้ 5x5 ถึงจะถอดได้ 7x7 ไว้เผื่อแท่งหนา',
-                          'Measured: on a very crisp image a 3x3 blur FINDS the bars but fails to decode them. 5x5 decodes; 7x7 is the fallback for thicker bars.'));
+    o.push('        # '+L('วัดมาแล้ว: ไฟล์ภาพที่คมเป๊ะต้องเบลอ 5x5 ถึงถอดรหัสได้ (3x3 เจอแท่งแต่ถอดไม่ได้) 7x7 ไว้เผื่อแท่งหนา ส่วนโค้ดเล็กแท่งบาง เบลอ 5x5 แล้วแท่งจะติดกัน อ่านได้แค่ภาพเดิมหรือ 3x3 จึงลองทุกระดับแล้วเก็บทุกอันที่อ่านได้',
+                          'Measured: a pixel-perfect file needs a 5x5 blur to decode (3x3 finds the bars but fails); 7x7 rescues thick bars. A small, thin-barred code goes the other way - 5x5 merges its bars and only the plain image or 3x3 reads it - so try every level and keep whatever any of them read.'));
     o.push('        # '+L('ตัวอ่านของ OpenCV รู้จักแค่ EAN-13, EAN-8, UPC-A และ UPC-E ไม่มีตัวอ่าน Code 128 หรือ Code 39 ถ้าต้องอ่านสองชนิดนั้น ให้ติ๊ก pyzbar ในหน้าเว็บ',
                           'OpenCV\'s reader knows EAN-13, EAN-8, UPC-A and UPC-E only - it has no Code 128 or Code 39 reader at all. Tick the pyzbar option on the page if you need those two.'));
-    o.push('        attempts = [5, 7] if SOFTEN_BARCODE else [0]');
-    o.push('        values, types, points = [], [], None');
+    o.push('        attempts = [0, 3, 5, 7] if SOFTEN_BARCODE else [0]');
+    o.push('        seen = set()');
     o.push('        for k in attempts:');
     o.push('            source = cv2.GaussianBlur(gray, (k, k), 0) if k else gray');
     o.push('            ok, values, types, points = BARCODE_DETECTOR.detectAndDecodeWithType(source)');
-    o.push('            if ok and any(values):');
-    o.push('                break');
-    o.push('        if points is not None and len(values):');
+    o.push('            if not ok or points is None:');
+    o.push('                continue');
     o.push('            for value, kind, quad in zip(values, types, points):');
-    o.push('                if not value:');
+    o.push('                if not value or value in seen:');
     o.push('                    continue');
+    o.push('                seen.add(value)');
     o.push('                draw_quad(result, quad, GREEN, kind)');
     o.push('                cx, cy = np.asarray(quad).reshape(4, 2).mean(axis=0)');
     o.push('                found.append({"type": kind, "value": value, "x": int(cx), "y": int(cy)})');
