@@ -6,7 +6,7 @@
 
 **Tune OpenCV in the browser, then take the Python code straight to your edge device**
 
-Thai Embedded System and Robotics (TESR) · MIT License
+Thai Embedded System and Robotics (TESR) · MIT License · **v1.1.0** (shown in the page header and written into every generated script)
 
 ### 🔗 เปิดใช้งานได้เลย · Open the Lab
 
@@ -54,6 +54,7 @@ All 19 original scripts are kept in `python/` for classroom reference.
 - **Face Recognition** — enrol faces in the browser (LBP histogram + chi-square, live-tunable threshold), then generate a full Python script using the real `cv2.face.LBPHFaceRecognizer` with three modes: `--mode enroll` → `--mode train` → `--mode recognize`.
 - **Codes & markers** — two modes in one tab. *Make* draws an ArUco marker (nine dictionaries, any id), a QR code (any UTF-8 text including Thai, four error-correction levels) or one of five 1-D barcodes - EAN-13, EAN-8 and UPC-A from digits with the check digit worked out for you, Code 128 and Code 39 from text. Each type carries a one-line note saying where you would actually meet it: EAN-13 on supermarket products, Code 128 on parcel and pallet labels, Code 39 on older asset tags, and so on. One button sends it straight back into the main image so the whole loop — make it, read it, export the Python — happens on one screen. *Read* finds all three in an image or a live frame, reports ids, decoded text, positions and corners, and converts pixels to millimetres when you give it the printed marker size. The exported Python matches: a reader script, or a generator script that can also lay out a printable sheet of markers. OpenCV's barcode reader covers the EAN/UPC family only, so for Code 128 and Code 39 the page says so plainly and the reader you export switches to `pyzbar`.
 - **Python code shown in full on the same page**, updating live as you tune. Press **Copy** or **Download .py**, plus `requirements.txt` and result-image download.
+- **📦 Ready-to-run (.zip)** — one download that runs as soon as it is unpacked: the script, `requirements.txt` (pinned below OpenCV 5, which removed `cv2.CascadeClassifier`), every Haar cascade the script names, the image the values were tuned on, a `README.txt`, and `run_windows.bat` / `run_mac_linux.sh` that make a `.venv`, install and start it. On the Face Recognition tab it also carries the faces you enrolled as `dataset/<name>/0001.png …`, and the script trains `lbph_model.yml` from them on its first run — so unzip, run, and it recognises.
 - Generated code targets: PC (`cv2.VideoCapture`) · Raspberry Pi 5 (`Picamera2`) · NVIDIA Jetson (GStreamer `nvarguscamerasrc`, USB fallback) · Kinect v1 (`freenect`). Input source: image file / live camera / video file. Options: FPS overlay, saving result frames, **MQTT** publishing for Node-RED dashboards, Thai or English comments.
 - Bilingual UI (TH/EN toggle in the header).
 
@@ -225,6 +226,7 @@ The TESR name and logo are trademarks of TESR Co., Ltd. and are not covered by t
 - **Face Recognition** — ลงทะเบียนในเบราว์เซอร์ แล้ว generate สคริปต์ LBPH ครบ enroll → train → recognize
 - **โค้ด & มาร์กเกอร์** — แท็บเดียวมีสองโหมด *สร้าง* วาด ArUco (เลือกได้ 9 dictionary ทุก id), QR (ข้อความ UTF-8 ใส่ภาษาไทยได้ เลือกระดับกู้คืนได้ 4 ระดับ) หรือบาร์โค้ด 1 มิติ 5 ชนิด — EAN-13, EAN-8 และ UPC-A ใส่เป็นตัวเลขแล้วคำนวณหลักตรวจสอบให้ ส่วน Code 128 และ Code 39 ใส่เป็นข้อความ · ทุกชนิดมีคำอธิบายหนึ่งบรรทัดว่าเจอที่ไหนในชีวิตจริง เช่น EAN-13 บนสินค้าในห้าง Code 128 บนใบปิดกล่องพาร์เซลและป้ายพาเลท Code 39 บนป้ายครุภัณฑ์รุ่นเก่า กดปุ่มเดียวส่งกลับเข้าภาพหลักเพื่ออ่านซ้ำ ครบวงจร สร้าง → อ่าน → ออกเป็นโค้ด Python ในจอเดียว · *อ่าน* หาได้ทั้งสามแบบจากภาพนิ่งหรือกล้องสด บอก id ข้อความที่ถอดได้ ตำแหน่งและมุมทั้งสี่ และแปลงพิกเซลเป็นมิลลิเมตรให้เมื่อใส่ขนาดมาร์กเกอร์ที่พิมพ์จริง โค้ด Python ที่ได้ก็มีทั้งตัวอ่านและตัวสร้าง (สร้างแผ่นมาร์กเกอร์หลายตัวไว้พิมพ์ทีเดียวได้ด้วย) · ตัวอ่านบาร์โค้ดของ OpenCV รู้จักแค่ตระกูล EAN/UPC หน้าเว็บจึงบอกตรง ๆ สำหรับ Code 128 และ Code 39 และตัวอ่านที่ export ออกไปจะเปลี่ยนไปใช้ `pyzbar` ให้
 - **โค้ด Python โชว์เต็มในหน้าเดียวกัน** อัปเดตตามค่าที่ปรับ กด**คัดลอก**หรือ**ดาวน์โหลด .py** ได้ทันที พร้อม `requirements.txt`
+- **📦 ชุดพร้อมรัน (.zip)** — ดาวน์โหลดครั้งเดียว แตกไฟล์แล้วรันได้เลย: สคริปต์, `requirements.txt` (ล็อกไว้ต่ำกว่า OpenCV 5 เพราะรุ่น 5 ไม่มี `cv2.CascadeClassifier`), ไฟล์ Haar cascade ที่สคริปต์ใช้, ภาพที่ใช้จูน, `README.txt` และ `run_windows.bat` / `run_mac_linux.sh` ที่สร้าง `.venv` ติดตั้ง แล้วรันให้ · แท็บจำใบหน้าจะใส่ใบหน้าที่ลงทะเบียนบนเว็บเป็น `dataset/<ชื่อ>/0001.png …` ด้วย และสคริปต์จะเทรน `lbph_model.yml` ให้เองตอนรันครั้งแรก
 - UI สลับไทย/อังกฤษได้ที่มุมขวาบน
 
 ### วิธีใช้งาน
