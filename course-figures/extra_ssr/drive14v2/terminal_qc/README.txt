@@ -3,7 +3,7 @@ TESR ROI Studio - project file
 Saved by Studio v1.9.1 on 2026-11-11 05:06:55
 
 TO CARRY ON EDITING
-  Open http://127.0.0.1:8777/index.html
+  Open https://tesr-channel.github.io/AI_ROI_Designer/
   press Import config, and choose this .zip - or, once unzipped, pick
   terminal_qc_config.json, project.json and the .onnx file(s) together
   (hold Ctrl), or drop them on the picture. The regions, the reference
