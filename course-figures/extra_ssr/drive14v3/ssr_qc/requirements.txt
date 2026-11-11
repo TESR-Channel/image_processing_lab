@@ -1,0 +1,6 @@
+# TESR ROI Studio v1.10.0 - ssr_qc_config.json
+# opencv + numpy = the picture, onnxruntime = the .onnx model(s), paho-mqtt = --broker (Node-RED)
+opencv-python
+numpy
+onnxruntime
+paho-mqtt
