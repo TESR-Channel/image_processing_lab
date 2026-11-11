@@ -1,0 +1,10 @@
+# TESR extra part - QC with two AIs (tesr_vision_runner.py from ROI Studio)
+# PC (Windows / Linux / macOS), Python 3.8+
+# Raspberry Pi and Jetson: use install_pi.sh / install_jetson.sh instead
+#
+# OpenCV and NumPy for the picture, onnxruntime for the two models,
+# paho-mqtt only if you send results to Node-RED with --broker.
+opencv-python
+numpy
+onnxruntime
+paho-mqtt

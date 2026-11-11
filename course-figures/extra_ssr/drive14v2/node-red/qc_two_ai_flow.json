@@ -1,0 +1,126 @@
+[
+ {
+  "id": "qc_tab",
+  "type": "tab",
+  "label": "TESR QC with two AIs",
+  "disabled": false,
+  "info": "Results of tesr_vision_runner.py --broker <the IP of this computer> (ROI Studio, region 'Two AIs: find the object, count its parts').\nUses the broker already in the chapter 12 or 13 flow (aedes on port 1883) - this tab has no broker of its own."
+ },
+ {
+  "id": "qc_broker",
+  "type": "mqtt-broker",
+  "name": "broker on this computer",
+  "broker": "localhost",
+  "port": "1883",
+  "clientid": "",
+  "autoConnect": true,
+  "usetls": false,
+  "protocolVersion": "4",
+  "keepalive": "60",
+  "cleansession": true,
+  "birthTopic": "",
+  "birthQos": "0",
+  "birthPayload": "",
+  "closeTopic": "",
+  "closeQos": "0",
+  "closePayload": "",
+  "willTopic": "",
+  "willQos": "0",
+  "willPayload": ""
+ },
+ {
+  "id": "qc_in",
+  "type": "mqtt in",
+  "z": "qc_tab",
+  "name": "every reading",
+  "topic": "tesr/vision/+/+",
+  "qos": "0",
+  "datatype": "auto-detect",
+  "broker": "qc_broker",
+  "nl": false,
+  "rap": true,
+  "rh": 0,
+  "inputs": 0,
+  "x": 140,
+  "y": 100,
+  "wires": [
+   [
+    "qc_count"
+   ]
+  ]
+ },
+ {
+  "id": "qc_count",
+  "type": "function",
+  "z": "qc_tab",
+  "name": "count OK / NG",
+  "func": "// One message per reading of a \"two AIs\" region (task parts_check) from\n// tesr_vision_runner.py --broker <this computer>. Each picture in a folder run\n// is one reading; on a camera, a reading is sent when the verdict changes.\nconst r = msg.payload;\nconst v = r && typeof r === \"object\" ? r.value : null;\nif (!v || typeof v !== \"object\" || !(\"result\" in v)) return null;   // the picture, or another kind of region\nif (v.result === \"none\") {\n    node.status({fill: \"grey\", shape: \"ring\", text: \"no object in view\"});\n    return null;\n}\nconst c = flow.get(\"qc\") || {ok: 0, ng: 0};\nif (v.result === \"OK\") c.ok += 1; else c.ng += 1;\nflow.set(\"qc\", c);\nconst found = (v.found || []).join(\" / \");\nnode.status({fill: v.result === \"OK\" ? \"green\" : \"red\", shape: \"dot\",\n             text: \"OK \" + c.ok + \" · NG \" + c.ng + \"   (last \" + v.result + \" \" + found + \" of \" + v.expect + \")\"});\nmsg.payload = {ok: c.ok, ng: c.ng, last: v.result, found: v.found, expect: v.expect,\n               region: r.roi, camera: r.camera, time: r.time};\nreturn msg;",
+  "outputs": 1,
+  "timeout": 0,
+  "noerr": 0,
+  "initialize": "",
+  "finalize": "",
+  "libs": [],
+  "x": 360,
+  "y": 100,
+  "wires": [
+   [
+    "qc_dbg"
+   ]
+  ]
+ },
+ {
+  "id": "qc_dbg",
+  "type": "debug",
+  "z": "qc_tab",
+  "name": "each verdict",
+  "active": true,
+  "tosidebar": true,
+  "console": false,
+  "tostatus": false,
+  "complete": "payload",
+  "targetType": "msg",
+  "statusVal": "",
+  "statusType": "auto",
+  "x": 580,
+  "y": 100,
+  "wires": []
+ },
+ {
+  "id": "qc_reset_btn",
+  "type": "inject",
+  "z": "qc_tab",
+  "name": "reset counts",
+  "props": [],
+  "repeat": "",
+  "crontab": "",
+  "once": false,
+  "onceDelay": 0.1,
+  "topic": "",
+  "x": 150,
+  "y": 170,
+  "wires": [
+   [
+    "qc_reset"
+   ]
+  ]
+ },
+ {
+  "id": "qc_reset",
+  "type": "function",
+  "z": "qc_tab",
+  "name": "zero OK / NG",
+  "func": "flow.set(\"qc\", {ok: 0, ng: 0});\nnode.status({fill: \"grey\", shape: \"ring\", text: \"counts reset\"});\nreturn null;",
+  "outputs": 1,
+  "timeout": 0,
+  "noerr": 0,
+  "initialize": "",
+  "finalize": "",
+  "libs": [],
+  "x": 360,
+  "y": 170,
+  "wires": [
+   []
+  ]
+ }
+]
